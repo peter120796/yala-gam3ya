@@ -53,7 +53,12 @@ export const getSession = cache(async (): Promise<Session | null> => {
 let policyCache: { at: number; rows: { id: string; doc: PolicyVersionDoc }[] } | null = null;
 export async function currentPolicies() {
   if (policyCache && Date.now() - policyCache.at < 60_000) return policyCache.rows;
-  const snap = await refs.policies().where("isCurrent", "==", true).get();
+  let snap = await refs.policies().where("isCurrent", "==", true).get();
+  if (snap.empty) {
+    // First deploy: seed the initial policy versions so nobody gets stuck on onboarding.
+    const { ensureInitialPolicies } = await import("@/lib/data/policies");
+    if (await ensureInitialPolicies()) snap = await refs.policies().where("isCurrent", "==", true).get();
+  }
   const rows = snap.docs.map((d) => ({ id: d.id, doc: d.data() as PolicyVersionDoc }));
   policyCache = { at: Date.now(), rows };
   return rows;
