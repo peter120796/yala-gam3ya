@@ -1,0 +1,2 @@
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_email_status";--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_email_status" CHECK ("notifications"."email_status" in ('not_requested','pending','sending','sent','failed','skipped'));
