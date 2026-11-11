@@ -11,10 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOutAction } from "@/app/actions/auth";
+import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
+import { signOutEverywhere } from "@/lib/auth/client-session";
 
 export function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) {
   const t = useTranslations();
+  const locale = useLocale();
+  const router = useRouter();
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <DropdownMenu>
@@ -39,7 +43,7 @@ export function UserMenu({ name, isAdmin }: { name: string; isAdmin: boolean }) 
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOutAction()}>
+        <DropdownMenuItem onSelect={async () => { await signOutEverywhere(locale); router.replace("/login"); router.refresh(); }}>
           <LogOut /> {t("common.signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>

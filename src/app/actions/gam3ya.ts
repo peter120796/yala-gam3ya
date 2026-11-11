@@ -2,17 +2,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
-import { contributionRecordSchema, payoutRecordSchema, uuidSchema } from "@/lib/validation/gam3ya";
-import { evaluateLifecycle, proposeTurnSwap, recordContribution, recordPayout } from "@/lib/gam3ya/recording";
+import { contributionRecordSchema, payoutRecordSchema } from "@/lib/validation/gam3ya";
+import { evaluateLifecycle, proposeSwap, recordContribution, recordPayout } from "@/lib/data/gam3yas";
 
-const withGam3ya = <S extends z.ZodRawShape>(shape: S) => z.object({ gam3yaId: uuidSchema, ...shape });
+const docId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
 export const recordContributionAction = defineAction(
-  withGam3ya(contributionRecordSchema.shape),
-  async ({ tx, input }) => {
-    const { gam3yaId, ...rest } = input;
-    await recordContribution(tx, rest);
-    revalidatePath(`/gam3yas/${gam3yaId}`);
+  z.object({ gam3yaId: docId, ...contributionRecordSchema.omit({ obligationId: true }).shape, obligationId: docId }),
+  async ({ user, input }) => {
+    await recordContribution(user.actor, input.gam3yaId, input.obligationId, { status: input.status, paymentDate: input.paymentDate, reason: input.reason });
+    revalidatePath(`/gam3yas/${input.gam3yaId}`);
     revalidatePath("/");
     return null;
   },
@@ -20,11 +19,10 @@ export const recordContributionAction = defineAction(
 );
 
 export const recordPayoutAction = defineAction(
-  withGam3ya(payoutRecordSchema.shape),
-  async ({ tx, input }) => {
-    const { gam3yaId, ...rest } = input;
-    await recordPayout(tx, rest);
-    revalidatePath(`/gam3yas/${gam3yaId}`);
+  z.object({ gam3yaId: docId, ...payoutRecordSchema.omit({ payoutId: true }).shape, payoutId: docId }),
+  async ({ user, input }) => {
+    await recordPayout(user.actor, input.gam3yaId, input.payoutId, { status: input.status, completionDate: input.completionDate, reason: input.reason });
+    revalidatePath(`/gam3yas/${input.gam3yaId}`);
     revalidatePath("/");
     return null;
   },
@@ -32,14 +30,9 @@ export const recordPayoutAction = defineAction(
 );
 
 export const proposeSwapAction = defineAction(
-  z.object({
-    gam3yaId: uuidSchema,
-    shareA: z.number().int().min(1).max(120),
-    shareB: z.number().int().min(1).max(120),
-    reason: z.string().trim().min(3).max(300),
-  }),
-  async ({ tx, input }) => {
-    await proposeTurnSwap(tx, input.gam3yaId, input.shareA, input.shareB, input.reason);
+  z.object({ gam3yaId: docId, shareA: z.number().int().min(1).max(120), shareB: z.number().int().min(1).max(120), reason: z.string().trim().min(3).max(300) }),
+  async ({ user, input }) => {
+    await proposeSwap(user.actor, input.gam3yaId, input.shareA, input.shareB, input.reason);
     revalidatePath(`/gam3yas/${input.gam3yaId}`);
     return null;
   },
@@ -47,11 +40,12 @@ export const proposeSwapAction = defineAction(
 );
 
 export const evaluateLifecycleAction = defineAction(
-  uuidSchema,
-  async ({ tx, input }) => {
-    const status = await evaluateLifecycle(tx, input);
+  docId,
+  async ({ user, input }) => {
+    const status = await evaluateLifecycle(user.actor, input);
     revalidatePath(`/gam3yas/${input}`);
     return status;
   },
   { name: "evaluate", limit: 20 },
 );
+

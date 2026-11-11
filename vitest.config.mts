@@ -21,13 +21,11 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "db",
-          include: ["tests/db/**/*.test.ts"],
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
           environment: "node",
-          // DB tests share one database; run files sequentially.
           fileParallelism: false,
           testTimeout: 30_000,
-          hookTimeout: 60_000,
         },
       },
     ],

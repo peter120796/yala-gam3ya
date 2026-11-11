@@ -1,0 +1,20 @@
+{
+  "indexes": [
+    { "collectionGroup": "payouts", "queryScope": "COLLECTION_GROUP", "fields": [{ "fieldPath": "recipientIds", "arrayConfig": "CONTAINS" }, { "fieldPath": "isCurrent", "order": "ASCENDING" }] },
+    { "collectionGroup": "payouts", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "recipientIds", "arrayConfig": "CONTAINS" }, { "fieldPath": "isCurrent", "order": "ASCENDING" }] },
+    { "collectionGroup": "payouts", "queryScope": "COLLECTION_GROUP", "fields": [{ "fieldPath": "isCurrent", "order": "ASCENDING" }, { "fieldPath": "scheduledDate", "order": "ASCENDING" }] },
+    { "collectionGroup": "records", "queryScope": "COLLECTION_GROUP", "fields": [{ "fieldPath": "userIds", "arrayConfig": "CONTAINS" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "changeRequests", "queryScope": "COLLECTION_GROUP", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "readAt", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "approvalStatus", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" }] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "approvalStatus", "order": "ASCENDING" }, { "fieldPath": "emailLower", "order": "ASCENDING" }] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "approvalStatus", "order": "ASCENDING" }, { "fieldPath": "nameLower", "order": "ASCENDING" }] },
+    { "collectionGroup": "gam3yas", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "obligations", "fieldPath": "userId", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION" }, { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "obligations", "fieldPath": "dueDate", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION" }, { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] },
+    { "collectionGroup": "records", "fieldPath": "createdAt", "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION" }, { "order": "DESCENDING", "queryScope": "COLLECTION" }, { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }] }
+  ]
+}

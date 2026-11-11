@@ -6,14 +6,13 @@ import { Alert } from "@/components/ui/alert";
 import { Money } from "@/components/money";
 import { CommitmentsChart } from "@/components/gam3ya/commitments-chart";
 import { OverviewFilters } from "@/components/gam3ya/overview-filters";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { getMyGam3yas, getMyObligations, getMyPayouts } from "@/lib/gam3ya/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getMyGam3yas, getMyObligations, getMyPayouts } from "@/lib/data/reads";
 import { addMonthsToKey, daysInMonth, monthKey, todayIn, toDayNumber, compareDates } from "@/lib/engine/dates";
 import { sum } from "@/lib/engine/money";
 import { isContributionSettled } from "@/lib/engine/status";
 import { planningNet, projection, summarizeMonth } from "@/lib/engine/summary";
 import { formatMonthKey, formatNumber } from "@/lib/format";
-import { uuidSchema } from "@/lib/validation/gam3ya";
 import { cn } from "@/lib/utils";
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
@@ -31,13 +30,13 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const [t, locale] = [await getTranslations(), await getLocale()];
   const today = todayIn();
   const month = sp.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.month) ? sp.month : monthKey(today);
-  const filter = sp.gam3ya && uuidSchema.safeParse(sp.gam3ya).success ? sp.gam3ya : undefined;
+  const filter = sp.gam3ya && /^[A-Za-z0-9_-]{1,128}$/.test(sp.gam3ya) ? sp.gam3ya : undefined;
 
-  const data = await asUser(user, async (tx) => ({
-    gam3yas: (await getMyGam3yas(tx, user.userId)).filter((g) => g.membershipId),
-    obligations: await getMyObligations(tx, user.userId, filter),
-    payouts: await getMyPayouts(tx, user.userId, filter),
-  }));
+  const data = {
+    gam3yas: (await getMyGam3yas(user.actor)).filter((g) => g.isMember),
+    obligations: await getMyObligations(user.actor, filter),
+    payouts: await getMyPayouts(user.actor, filter),
+  };
 
   const s = summarizeMonth(month, data.obligations, data.payouts, today);
   const remaining = sum(data.obligations.filter((o) => !isContributionSettled(o.record)).map((o) => o.amount));

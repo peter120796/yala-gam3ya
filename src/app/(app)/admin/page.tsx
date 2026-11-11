@@ -6,18 +6,28 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { KpiCard } from "@/components/gam3ya/kpi-card";
 import { Gam3yaBadge } from "@/components/gam3ya/status-badge";
 import { Money } from "@/components/money";
-import { asUser, requireAdmin } from "@/lib/auth/session";
-import { getAdminOverview, getNeedsAction } from "@/lib/admin/queries";
+import { requireAdmin } from "@/lib/auth/session";
+import { getAdminOverview, getNeedsAction, pendingApprovalCount } from "@/lib/admin/queries";
 import { todayIn } from "@/lib/engine/dates";
 
 export default async function AdminOverviewPage() {
   const user = await requireAdmin();
   const t = await getTranslations();
   const today = todayIn();
-  const { stats, needs } = await asUser(user, async (tx) => ({ stats: await getAdminOverview(tx, today), needs: await getNeedsAction(tx, today) }));
+  const { stats, needs, pendingSignups } = {
+    stats: await getAdminOverview(user.actor, today),
+    needs: await getNeedsAction(user.actor, today),
+    pendingSignups: await pendingApprovalCount(user.actor),
+  };
   const attention = needs.filter((n) => n.status === "needs_closure" || n.overdue > 0 || n.reported > 0 || n.late_payouts > 0);
   return (
     <div className="flex flex-col gap-6">
+      {pendingSignups > 0 && (
+        <Link href="/admin/approvals" className="flex items-center justify-between rounded-2xl border border-primary/30 bg-accent p-4 text-accent-foreground hover:shadow-md">
+          <span className="font-semibold">{t("approvals.pendingCount")}</span>
+          <span className="num rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">{pendingSignups}</span>
+        </Link>
+      )}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <KpiCard label={t("admin.totalUsers")} value={<span className="num">{stats.total_users}</span>} icon={<Users />} />
         <KpiCard label={t("admin.activeUsers")} value={<span className="num">{stats.active_users}</span>} icon={<UserCheck />} />

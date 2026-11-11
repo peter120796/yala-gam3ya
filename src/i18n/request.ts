@@ -1,16 +1,12 @@
 import { cookies } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
-import { defaultLocale, isLocale, LOCALE_COOKIE } from "./config";
+import { defaultLocale } from "./config";
+import { decodeSessionCookie, SESSION_COOKIE } from "@/lib/auth/cookie";
 
-/**
- * Locale comes from a cookie (synced with the user's saved preference on
- * login), defaulting to Arabic. No locale prefix in URLs — this is an
- * authenticated app, so clean links matter more than per-locale SEO.
- */
+/** Locale lives in the single `__session` cookie (Firebase only forwards that one). */
 export default getRequestConfig(async () => {
   const store = await cookies();
-  const cookieLocale = store.get(LOCALE_COOKIE)?.value;
-  const locale = isLocale(cookieLocale) ? cookieLocale : defaultLocale;
+  const locale = decodeSessionCookie(store.get(SESSION_COOKIE)?.value).l ?? defaultLocale;
   return {
     locale,
     timeZone: "Africa/Cairo",

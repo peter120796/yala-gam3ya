@@ -1,18 +1,24 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
 import { defineAction } from "@/lib/actions";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { publicEnv } from "@/lib/env";
-import { DomainError } from "@/lib/gam3ya/errors";
-import { reviewChangeRequest } from "@/lib/gam3ya/recording";
-import { activateDraft, createDraft, deleteDraft, setDraftHoldings, setDraftTurns, updateDraft } from "@/lib/gam3ya/drafts";
-import { draftBasicsSchema, draftFinancialsSchema, holdingSchema, turnSchema, uuidSchema } from "@/lib/validation/gam3ya";
+import { approvalIds } from "@/lib/admin/queries";
+import { activateDraft, deleteDraft, restoreGam3ya, reviewChangeRequest, saveDraft } from "@/lib/data/gam3yas";
+import { inviteUser, setApproval, setUserActive, setUserRole } from "@/lib/data/users";
+import { publishPolicy } from "@/lib/data/policies";
+import { getEmailProvider } from "@/lib/notifications/provider";
+import { renderInvite } from "@/lib/notifications/render";
+import { draftBasicsSchema, draftFinancialsSchema, holdingSchema, turnSchema } from "@/lib/validation/gam3ya";
 
 const admin = { guard: "admin" as const };
+const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
-/** Secure invitation: Supabase emails a one-time link; we never see or set passwords. */
+/**
+ * Invitation: Firebase creates the account; we return a one-time
+ * "set password" link. It's emailed when email is enabled, and shown to the
+ * admin so it can also be shared directly (e.g. WhatsApp).
+ */
 export const inviteUserAction = defineAction(
   z.object({
     email: z.email().max(254),
@@ -20,69 +26,75 @@ export const inviteUserAction = defineAction(
     role: z.enum(["member", "organizer", "super_admin"]),
     locale: z.enum(["ar", "en"]).default("ar"),
   }),
-  async ({ tx, input }) => {
-    const supa = createSupabaseAdmin();
-    const { data, error } = await supa.auth.admin.inviteUserByEmail(input.email.toLowerCase(), {
-      data: { display_name: input.displayName, locale: input.locale },
-      redirectTo: `${publicEnv.siteUrl}/auth/confirm?next=/set-password`,
-    });
-    if (error || !data.user) throw new DomainError(error?.status === 422 ? "duplicate" : "unexpected_error");
-    if (input.role !== "member") {
-      await tx.execute(sql`select app.admin_set_user_role(${data.user.id}::uuid, ${input.role})`);
-    }
-    await tx.execute(sql`select app.admin_log('user.invited', 'profile', ${data.user.id}, ${input.role})`);
+  async ({ user, input }) => {
+    const { uid, link } = await inviteUser(user.actor, input, `${publicEnv.siteUrl}/login`);
+    const mail = renderInvite(input.locale, input.displayName, link);
+    const sent = await getEmailProvider().send({ to: input.email, ...mail });
     revalidatePath("/admin/users");
-    return { id: data.user.id };
+    return { id: uid, link, emailed: sent.ok && getEmailProvider().name !== "console" };
   },
   { ...admin, name: "invite", limit: 30 },
 );
 
 export const setUserRoleAction = defineAction(
-  z.object({ userId: uuidSchema, role: z.enum(["member", "organizer", "super_admin"]) }),
-  async ({ tx, input }) => {
-    await tx.execute(sql`select app.admin_set_user_role(${input.userId}::uuid, ${input.role})`);
+  z.object({ userId: id, role: z.enum(["member", "organizer", "super_admin"]) }),
+  async ({ user, input }) => {
+    await setUserRole(user.actor, input.userId, input.role);
     revalidatePath("/admin/users");
     return null;
   },
   { ...admin, name: "set-role" },
 );
 
-/** Deactivation keeps history, and also bans the auth user so sessions can't refresh. */
 export const setUserActiveAction = defineAction(
-  z.object({ userId: uuidSchema, active: z.boolean(), reason: z.string().trim().min(3).max(300) }),
-  async ({ tx, input }) => {
-    await tx.execute(sql`select app.admin_set_user_active(${input.userId}::uuid, ${input.active}, ${input.reason})`);
-    const supa = createSupabaseAdmin();
-    await supa.auth.admin.updateUserById(input.userId, { ban_duration: input.active ? "none" : "876000h" });
+  z.object({ userId: id, active: z.boolean(), reason: z.string().trim().min(3).max(300) }),
+  async ({ user, input }) => {
+    await setUserActive(user.actor, input.userId, input.active, input.reason);
     revalidatePath("/admin/users");
     return null;
   },
   { ...admin, name: "set-active" },
 );
 
+export const setApprovalAction = defineAction(
+  z
+    .object({
+      decision: z.enum(["approved", "rejected", "pending"]),
+      ids: z.array(id).max(5000).optional(),
+      allMatching: z.object({ status: z.enum(["pending", "approved", "rejected"]), q: z.string().trim().max(80).nullable() }).optional(),
+      reason: z.string().trim().max(300).nullable(),
+    })
+    .refine((v) => (v.ids?.length ?? 0) > 0 || v.allMatching, "nothing_selected"),
+  async ({ user, input }) => {
+    const ids = input.allMatching ? await approvalIds(user.actor, input.allMatching.status, input.allMatching.q || null) : input.ids!;
+    const count = await setApproval(user.actor, ids, input.decision, input.reason);
+    revalidatePath("/admin/approvals");
+    revalidatePath("/admin");
+    return { count };
+  },
+  { ...admin, name: "approvals", limit: 30 },
+);
+
 export const saveDraftAction = defineAction(
   z.object({
-    id: uuidSchema.nullable(),
+    id: id.nullable(),
     basics: draftBasicsSchema,
     financials: draftFinancialsSchema,
     holdings: z.array(holdingSchema).max(240),
     turns: z.array(turnSchema).max(120),
   }),
-  async ({ tx, user, input }) => {
-    const id = input.id ?? (await createDraft(tx, user.userId, input.basics, input.financials));
-    if (input.id) await updateDraft(tx, id, user.userId, input.basics, input.financials);
-    await setDraftHoldings(tx, id, input.holdings);
-    await setDraftTurns(tx, id, input.turns);
+  async ({ user, input }) => {
+    const gid = await saveDraft(user.actor, input);
     revalidatePath("/admin/gam3yas");
-    return { id };
+    return { id: gid };
   },
   { ...admin, name: "save-draft", limit: 30 },
 );
 
 export const activateDraftAction = defineAction(
-  uuidSchema,
-  async ({ tx, input }) => {
-    await activateDraft(tx, input);
+  id,
+  async ({ user, input }) => {
+    await activateDraft(user.actor, input);
     revalidatePath("/admin/gam3yas");
     revalidatePath("/");
     return { id: input };
@@ -91,9 +103,9 @@ export const activateDraftAction = defineAction(
 );
 
 export const deleteDraftAction = defineAction(
-  uuidSchema,
-  async ({ tx, input }) => {
-    await deleteDraft(tx, input);
+  id,
+  async ({ user, input }) => {
+    await deleteDraft(user.actor, input);
     revalidatePath("/admin/gam3yas");
     return null;
   },
@@ -101,9 +113,9 @@ export const deleteDraftAction = defineAction(
 );
 
 export const reviewRequestAction = defineAction(
-  z.object({ id: uuidSchema, approve: z.boolean(), note: z.string().trim().max(300).nullable() }),
-  async ({ tx, input }) => {
-    await reviewChangeRequest(tx, input.id, input.approve, input.note);
+  z.object({ gam3yaId: id, id, approve: z.boolean(), note: z.string().trim().max(300).nullable() }),
+  async ({ user, input }) => {
+    await reviewChangeRequest(user.actor, input.gam3yaId, input.id, input.approve, input.note);
     revalidatePath("/admin/requests");
     return null;
   },
@@ -111,9 +123,9 @@ export const reviewRequestAction = defineAction(
 );
 
 export const restoreGam3yaAction = defineAction(
-  z.object({ id: uuidSchema, reason: z.string().trim().min(3).max(300) }),
-  async ({ tx, input }) => {
-    await tx.execute(sql`select app.restore_gam3ya(${input.id}::uuid, ${input.reason})`);
+  z.object({ id, reason: z.string().trim().min(3).max(300) }),
+  async ({ user, input }) => {
+    await restoreGam3ya(user.actor, input.id, input.reason);
     revalidatePath("/admin/gam3yas");
     return null;
   },
@@ -123,12 +135,11 @@ export const restoreGam3yaAction = defineAction(
 export const publishPolicyAction = defineAction(
   z.object({
     kind: z.enum(["terms", "privacy", "disclaimer", "subscription"]),
-    version: z.string().trim().min(1).max(30),
+    version: z.string().trim().min(1).max(30).regex(/^[A-Za-z0-9._-]+$/),
     summary: z.string().trim().max(300).nullable(),
   }),
-  async ({ tx, input }) => {
-    const requires = input.kind === "terms" || input.kind === "privacy";
-    await tx.execute(sql`select app.publish_policy(${input.kind}, ${input.version}, ${input.summary}, ${requires})`);
+  async ({ user, input }) => {
+    await publishPolicy(user.actor, input.kind, input.version, input.summary);
     revalidatePath("/admin/policies");
     return null;
   },

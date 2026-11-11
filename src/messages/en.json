@@ -80,7 +80,7 @@
     "passwordRules": "At least 10 characters, including a letter and a number.",
     "passwordUpdated": "Password updated.",
     "invalidCredentials": "Incorrect email or password.",
-    "inviteOnly": "Accounts are created by invitation. Ask your Gam3ya organizer if you need one.",
+    "inviteOnly": "New accounts are activated after an administrator approves them.",
     "linkInvalid": "This link is expired or invalid. Request a new one.",
     "mfaTitle": "Two-step verification",
     "mfaSubtitle": "Enter the code shown in your authenticator app.",
@@ -91,7 +91,9 @@
     "verify": "Verify",
     "mfaInvalid": "That code is incorrect. Try again.",
     "accountDeactivated": "This account is deactivated. Contact an administrator if this is a mistake.",
-    "rateLimited": "Too many attempts. Please wait and try again."
+    "rateLimited": "Too many attempts. Please wait and try again.",
+    "mfaRelogin": "To continue, please sign in again (you'll enter your authenticator code if it's set up).",
+    "mfaEnrolled": "Two-step verification is on ✓ Sign in again with your code."
   },
   "onboarding": {
     "title": "Before we start",
@@ -123,7 +125,8 @@
     "changePassword": "Change password",
     "privacyRequests": "Privacy requests & account deletion",
     "privacyRequestsHint": "You can request a copy of your data or deletion of your account. Some financial records may be kept for legally required periods.",
-    "contactSupport": "Contact support"
+    "contactSupport": "Contact support",
+    "passwordResetSent": "We emailed you a link to change your password."
   },
   "errors": {
     "not_authorized": "You're not allowed to do that.",
@@ -149,7 +152,9 @@
     "validation": "Please check the information entered.",
     "rate_limited": "Too many requests. Please wait a minute.",
     "pageNotFound": "This page doesn't exist.",
-    "somethingWrong": "Something went wrong"
+    "somethingWrong": "Something went wrong",
+    "user_not_approved": "That user's account isn't approved yet.",
+    "conflict_retry": "Someone else changed this at the same moment. Please try again."
   },
   "issues": {
     "INVALID_TOTAL_SHARES": "Number of shares must be between {min} and {max}.",
@@ -366,7 +371,8 @@
     "gam3ya_schedule_updated": "The {gam3ya} schedule was updated.",
     "test": "Test notification",
     "emailSubject": "A reminder from Yala-Gam3ya",
-    "emailFooter": "You receive this because email notifications are on. You can turn them off in Settings."
+    "emailFooter": "You receive this because email notifications are on. You can turn them off in Settings.",
+    "account_approved": "Welcome, {name}! Your account is approved — you can use Yala-Gam3ya now 🎉"
   },
   "admin": {
     "title": "Admin",
@@ -419,7 +425,12 @@
     "current": "Current",
     "mfaRequired": "Turn on two-step verification to access the admin area.",
     "searchUsers": "Search by name or email",
-    "noResults": "No results."
+    "noResults": "No results.",
+    "approvals": "Sign-up requests",
+    "approval": "Approval",
+    "inviteLink": "Account setup link (you can share it on WhatsApp):",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "wizard": {
     "title": "New Gam3ya",
@@ -484,5 +495,52 @@
     "recordedDate": "Recorded date",
     "mySchedule": "My schedule",
     "gam3ya": "Gam3ya"
+  },
+  "signup": {
+    "title": "Create an account",
+    "subtitle": "Sign up, and an administrator will activate your account after review.",
+    "submit": "Create account",
+    "haveAccount": "Already have an account?",
+    "terms": "I accept the <terms>Terms & Conditions</terms> and the <privacy>Privacy Policy</privacy>",
+    "checkEmail": "Done! We sent you a confirmation email. Confirm your address, then your account will wait for admin approval.",
+    "errors": {
+      "signupInvalid": "Please check the information entered.",
+      "passwordRules": "Password must be at least 10 characters, with a letter and a number.",
+      "passwordsMismatch": "Passwords don't match.",
+      "termsRequired": "You need to accept the Terms and Privacy Policy.",
+      "invalidPhone": "That mobile number isn't valid (e.g. 01012345678).",
+      "rateLimited": "Too many attempts. Please wait.",
+      "emailUnavailable": "We can't create an account with this email. Try signing in or resetting your password."
+    },
+    "createAccount": "Create a new account",
+    "noAccount": "Don't have an account?"
+  },
+  "pending": {
+    "title": "Welcome, {name} 👋",
+    "body": "Your account was created and is waiting for administrator approval.",
+    "hint": "You'll get a notification as soon as it's activated. You can close this page.",
+    "rejectedTitle": "Request not approved",
+    "rejectedBody": "Unfortunately your sign-up request wasn't approved. Contact support if you think this is a mistake.",
+    "signOut": "Sign out"
+  },
+  "approvals": {
+    "title": "Sign-up requests",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "selectPage": "Select page",
+    "selectAllMatching": "Select all {count} requests",
+    "selected": "{count} selected",
+    "clear": "Clear selection",
+    "approve": "Approve",
+    "reject": "Reject",
+    "resetPending": "Move back to pending",
+    "confirmTitle": "Confirm",
+    "confirmBody": "This decision will apply to {count} accounts.",
+    "done": "{count} accounts updated.",
+    "empty": "No requests here.",
+    "signedUp": "Signed up",
+    "phone": "Mobile",
+    "pendingCount": "Pending sign-up requests"
   }
 }

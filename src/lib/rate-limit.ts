@@ -1,6 +1,6 @@
 /**
  * Small sliding-window rate limiter (per server instance). It blunts abuse of
- * server actions; Supabase Auth applies its own limits to sign-in, reset and
+ * server actions; Firebase Auth applies its own limits to sign-in, reset and
  * OTP endpoints. For multi-instance strictness, swap the store for Redis
  * (e.g. Upstash) — the call sites don't change.
  */

@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { CommitmentsChart } from "@/components/gam3ya/commitments-chart";
-import { asUser, requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { getReports } from "@/lib/admin/queries";
 import { todayIn } from "@/lib/engine/dates";
 import { formatMonthKey, formatNumber } from "@/lib/format";
@@ -10,7 +10,7 @@ import { formatMonthKey, formatNumber } from "@/lib/format";
 export default async function ReportsPage() {
   const user = await requireAdmin();
   const [t, locale] = [await getTranslations(), await getLocale()];
-  const r = await asUser(user, (tx) => getReports(tx, todayIn()));
+  const r = await getReports(user.actor, todayIn());
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-3 sm:grid-cols-3">

@@ -1,0 +1,35 @@
+# Firebase App Hosting configuration for Yala-Gam3ya.
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  # Firebase web config (public by design — safe in the repo)
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAUunFMN0-G3vkDA7v5tb838Z4JnZsZWAk
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: yala-gam3ya.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: yala-gam3ya
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:1066760410796:web:0b5c113dd6afdbb65ff109
+    availability: [BUILD, RUNTIME]
+
+  # We'll replace this with the real App Hosting URL after the first deploy.
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://yala-gam3ya.web.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_SUPPORT_EMAIL
+    value: petrosatef@gmail.com
+    availability: [BUILD, RUNTIME]
+
+  # Email reminders stay OFF for now (no email provider yet).
+  - variable: NOTIFICATIONS_EMAIL_ENABLED
+    value: "false"
+    availability: [RUNTIME]

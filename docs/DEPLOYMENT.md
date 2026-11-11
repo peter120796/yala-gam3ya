@@ -1,42 +1,47 @@
-# Deployment — Supabase + Vercel
+# Deployment — Firebase (App Hosting + Auth + Firestore)
 
-## 1. Supabase
-1. Create a project — region **Frankfurt (eu-central-1)** is closest to Egypt (see legal checklist re: cross-border transfer).
-2. **Auth → Providers:** Email enabled, **disable public sign-ups** ("Allow new users to sign up" off — accounts are invite-only).
-3. **Auth → MFA:** enable TOTP.
-4. **Auth → URL configuration:** Site URL = your production URL; add `https://<domain>/auth/confirm` to redirect URLs (and preview URLs if needed).
-5. **Auth → Email templates** — point links at the server route (works without PKCE):
-   - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/set-password`
-   - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/set-password`
-   Translate the email bodies to Arabic/English as you prefer.
-6. **Auth → SMTP:** configure a real SMTP sender (Supabase's built-in sender is heavily rate-limited).
-7. **Data API:** this app does not use PostgREST. Recommended: remove `public` from exposed schemas (or disable the Data API) for defence in depth. RLS + revoked grants protect it either way.
-8. Copy keys (Project Settings → API) and connection strings (Database → Connect): transaction pooler (6543) for `DATABASE_URL`, session pooler/direct (5432) for `DATABASE_URL_DIRECT`.
-9. Run migrations from your machine:
-   ```bash
-   DATABASE_URL_DIRECT=... npm run db:migrate
-   ```
-10. **Create the first super admin:** Auth → Users → "Invite user" (your email). After accepting the invite, in SQL editor:
-    ```sql
-    update public.profiles set platform_role = 'super_admin' where email = 'you@example.com';
-    ```
-    Sign in → you'll be asked to enroll TOTP → admin area unlocked.
-11. **Backups:** enable Point-in-Time Recovery (Pro plan) and **test a restore** into a branch/new project before launch.
+Do the steps in order. Each one is small.
 
-## 2. Vercel
-1. Import the GitHub repo (framework auto-detected).
-2. Environment variables (Production + Preview) — from `.env.example`:
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPPORT_EMAIL`, `CRON_SECRET`, and when ready `NOTIFICATIONS_EMAIL_ENABLED=true`, `RESEND_API_KEY`, `EMAIL_FROM`.
-3. Region: **fra1** (Frankfurt) next to the database (Project → Settings → Functions).
-4. Cron: `vercel.json` schedules `/api/cron/daily` at 05:00 UTC (07:00 Cairo). Vercel sends `Authorization: Bearer $CRON_SECRET` automatically.
-5. Deploy. Smoke test: `/login` (Arabic RTL), invite a user, accept, onboarding, create a Gam3ya, record a payment.
+## A. Firebase project
+1. console.firebase.google.com → **Add project** → name `yala-gam3ya` (Analytics optional).
+2. Upgrade to the **Blaze** plan (needed for App Hosting & Cloud Scheduler; small apps usually stay in the free usage). Set a budget alert (e.g. USD 5).
+3. **Build → Firestore Database → Create database** → Production mode → location **eur3 (Europe)** or **europe-west1**.
+4. **Build → Authentication → Get started** → enable **Email/Password**.
+5. **Authentication → Settings → Upgrade to Identity Platform** (free tier; needed for TOTP two-step).
+6. **Authentication → Settings → User actions:** keep "Enable create (sign-up)" ON (self sign-up is approved by admins). Turn on **Email enumeration protection**.
+7. **Authentication → Settings → Authorized domains:** add your App Hosting domain after step C.
+8. **Project settings → Your apps → Web app (</>)** → register → copy `apiKey`, `authDomain`, `projectId`, `appId`.
 
-## 3. Sentry (optional, recommended)
-`npx @sentry/wizard@latest -i nextjs` on your machine, then set `SENTRY_DSN`. Keep `sendDefaultPii: false` and scrub emails/phones in `beforeSend`.
+## B. Rules, indexes, TOTP (from your Mac, in the project folder)
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use --add                 # pick your project
+firebase deploy --only firestore   # deny-all rules + indexes
+```
+Enable TOTP once (needs a service-account key: Project settings → Service accounts → Generate new private key; keep it secret):
+```bash
+FIREBASE_SERVICE_ACCOUNT="$(cat ~/Downloads/your-key.json)" npm run firebase:enable-totp
+```
 
-## 4. Release checklist
-- [ ] `npm run check` green, `npm run build` green
-- [ ] Migrations applied to production
-- [ ] First admin enrolled in MFA
-- [ ] Restore test done
-- [ ] Legal checklist signed off by counsel
+## C. App Hosting
+1. Edit `apphosting.yaml`: replace every `REPLACE_ME` with the web-app values from A.8, commit & push.
+2. Create the cron secret: `firebase apphosting:secrets:set CRON_SECRET` (paste the output of `openssl rand -hex 32`).
+3. Console → **Build → App Hosting → Get started** → connect GitHub → repo `yala-gam3ya`, branch `main`, root `/` → region **europe-west4** → create. It builds and deploys on every push.
+4. Grant the backend access to the secret if prompted (`firebase apphosting:secrets:grantaccess CRON_SECRET --backend <name>`).
+5. Copy the live URL → set `NEXT_PUBLIC_SITE_URL` in `apphosting.yaml` → push again. Add the domain to Auth authorized domains (A.7).
+
+## D. First admin
+1. Open the site → **Create account** with your email.
+2. Firestore console → `users/{your uid}` → set `role` = `super_admin`, `approvalStatus` = `approved`.
+3. Sign out/in → you'll be asked to scan a QR with Google Authenticator → sign in again with the code → **Admin** appears.
+   (The first policy versions are created automatically by the daily job; to create them immediately, call the cron URL once — see E.)
+
+## E. Daily reminders (Cloud Scheduler)
+Console → Cloud Scheduler → Create job: frequency `0 7 * * *`, timezone `Africa/Cairo`, target **HTTP GET** `https://<your-site>/api/cron/daily`, header `Authorization: Bearer <CRON_SECRET>`.
+
+## F. Email (optional, later)
+Firebase sends verification & password-reset emails itself (customize templates under Authentication → Templates; set the language per template). For reminders/invites by email, create a Resend account, then set `NOTIFICATIONS_EMAIL_ENABLED=true`, `EMAIL_FROM`, and secret `RESEND_API_KEY` in `apphosting.yaml`. Until then, invitations show a **copyable link** the admin can share (e.g. WhatsApp).
+
+## G. Before real users
+- [ ] Budget alert set · [ ] Firestore **PITR/backups** enabled and a restore tested · [ ] Legal checklist reviewed by counsel · [ ] App Check (reCAPTCHA Enterprise) for sign-up abuse protection.

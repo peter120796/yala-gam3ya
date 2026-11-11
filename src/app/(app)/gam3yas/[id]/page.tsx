@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ArrowRight, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,15 +12,14 @@ import { ContributionBadge, Gam3yaBadge, PayoutBadge } from "@/components/gam3ya
 import { MemberActions } from "@/components/gam3ya/member-actions";
 import { ManagePanel } from "@/components/gam3ya/manage-panel";
 import { ExportButtons } from "@/components/gam3ya/export-buttons";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { gam3yas, changeRequests } from "@/lib/db/schema";
-import { getManageData, getMyObligations, getMyPayouts, getOrganizerNames, getTurns } from "@/lib/gam3ya/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getGam3yaForViewer, getManageData, getMyObligations, getMyPayouts, getOrganizerNames, getTurns } from "@/lib/data/reads";
+import { canManage } from "@/lib/data/policy";
 import { todayIn, compareDates } from "@/lib/engine/dates";
 import { multiply, sum } from "@/lib/engine/money";
 import { currentCycleNumber, cyclesElapsed } from "@/lib/engine/status";
 import { contributionStatusOf, payoutStatusOf, remainingInstallments } from "@/lib/engine/summary";
 import { formatCivilDate } from "@/lib/format";
-import { uuidSchema } from "@/lib/validation/gam3ya";
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -35,27 +32,23 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 
 export default async function Gam3yaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!uuidSchema.safeParse(id).success) notFound();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) notFound();
   const user = await requireUser();
   const [t, locale] = [await getTranslations(), await getLocale()];
   const today = todayIn();
 
-  const data = await asUser(user, async (tx) => {
-    const [g] = await tx.select().from(gam3yas).where(eq(gam3yas.id, id));
-    if (!g || g.status === "draft") return null; // RLS already hides what you can't see
-    const [{ manage }] = (await tx.execute(sql`select app.can_manage(${id}::uuid) as manage`)) as unknown as { manage: boolean }[];
-    return {
-      g,
-      manage,
-      organizers: await getOrganizerNames(tx, id),
-      turns: await getTurns(tx, id),
-      obligations: await getMyObligations(tx, user.userId, id),
-      payouts: await getMyPayouts(tx, user.userId, id),
-      manageData: manage ? await getManageData(tx, id) : null,
-      pending: manage ? await tx.select().from(changeRequests).where(eq(changeRequests.gam3yaId, id)) : [],
-    };
-  });
-  if (!data) notFound();
+  const g0 = await getGam3yaForViewer(user.actor, id);
+  if (!g0 || g0.status === "draft") notFound();
+  const manage = canManage(user.actor, g0);
+  const [organizers, turns0, obligations0, payouts0, manageData] = await Promise.all([
+    getOrganizerNames(g0),
+    getTurns(user.actor, g0),
+    getMyObligations(user.actor, id),
+    getMyPayouts(user.actor, id),
+    manage ? getManageData(user.actor, id) : Promise.resolve(null),
+  ]);
+  const data = { g: g0, manage, organizers, turns: turns0, obligations: obligations0, payouts: payouts0, manageData, pending: manageData?.pending ?? [] };
+
   const { g, turns, obligations, payouts } = data;
 
   const dueDates = [...new Set(turns.map((x) => x.scheduled_date))].sort(compareDates);
@@ -263,7 +256,7 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
               graceDays={g.graceDays}
               today={today}
               obligations={data.manageData.obligations.map((r) => ({
-                id: r.o.id,
+                id: r.id,
                 cycleNumber: r.o.cycleNumber,
                 dueDate: r.o.dueDate,
                 amount: r.o.amount,
@@ -278,10 +271,10 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
                 recipientShare: p.recipientShare,
                 scheduledDate: p.scheduledDate,
                 amount: p.expectedAmount,
-                record: p.recordStatus as "delayed" | null,
+                record: p.recordStatus,
                 holders: turns.find((x) => x.cycle_number === p.cycleNumber)?.holders.map((h) => h.display_name) ?? [],
               }))}
-              pendingRequests={data.pending.filter((r) => r.status === "pending").map((r) => ({ id: r.id, shareA: r.shareA, shareB: r.shareB, reason: r.reason }))}
+              pendingRequests={data.pending.map((r) => ({ id: r.id, shareA: r.shareA, shareB: r.shareB, reason: r.reason }))}
             />
           </TabsContent>
         )}

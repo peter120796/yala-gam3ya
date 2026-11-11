@@ -47,3 +47,7 @@ next-env.d.ts
 coverage/
 playwright-report/
 test-results/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

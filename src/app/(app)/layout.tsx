@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { and, count, eq, isNull } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { DesktopNav, MobileTabBar } from "@/components/shell/nav-links";
@@ -8,15 +7,13 @@ import { LocaleSwitcher } from "@/components/shell/locale-switcher";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { PrivacyToggle } from "@/components/shell/privacy-toggle";
 import { UserMenu } from "@/components/shell/user-menu";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { notifications } from "@/lib/db/schema";
+import { requireUser } from "@/lib/auth/session";
+import { unreadCount } from "@/lib/data/reads";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const t = await getTranslations();
-  const [{ unread }] = await asUser(user, (tx) =>
-    tx.select({ unread: count() }).from(notifications).where(and(eq(notifications.userId, user.userId), isNull(notifications.readAt))),
-  ).then((r) => (r.length ? r : [{ unread: 0 }]));
+  const unread = await unreadCount(user.actor).catch(() => 0);
   const isAdmin = user.role === "super_admin";
 
   return (

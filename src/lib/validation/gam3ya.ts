@@ -2,14 +2,17 @@ import { z } from "zod";
 import { isValidDate } from "@/lib/engine/dates";
 import { LIMITS } from "@/lib/engine/validate";
 
-export const uuidSchema = z.uuid();
+/** Firebase Auth uids / Firestore document ids. */
+export const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+/** @deprecated kept for older imports */
+export const uuidSchema = idSchema;
 
 export const civilDateSchema = z.string().refine(isValidDate, { message: "invalid_date" });
 
 export const draftBasicsSchema = z.object({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().max(500).optional().nullable(),
-  organizerIds: z.array(uuidSchema).min(1).max(5),
+  organizerIds: z.array(idSchema).min(1).max(5),
 });
 
 export const draftFinancialsSchema = z
@@ -34,7 +37,7 @@ export const draftFinancialsSchema = z
 
 export const holdingSchema = z.object({
   shareNumber: z.number().int().min(1).max(LIMITS.maxShares),
-  userId: uuidSchema,
+  userId: idSchema,
   portionBp: z.union([z.literal(5000), z.literal(10000)]),
 });
 
@@ -44,14 +47,14 @@ export const turnSchema = z.object({
 });
 
 export const contributionRecordSchema = z.object({
-  obligationId: uuidSchema,
+  obligationId: idSchema,
   status: z.enum(["reported_paid", "recorded_paid", "waived"]).nullable(),
   paymentDate: civilDateSchema.nullable().optional(),
   reason: z.string().trim().max(300).optional().nullable(),
 });
 
 export const payoutRecordSchema = z.object({
-  payoutId: uuidSchema,
+  payoutId: idSchema,
   status: z.enum(["reported_completed", "confirmed_completed", "delayed"]).nullable(),
   completionDate: civilDateSchema.nullable().optional(),
   reason: z.string().trim().max(300).optional().nullable(),

@@ -7,10 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { KpiCard } from "@/components/gam3ya/kpi-card";
 import { CommitmentsChart } from "@/components/gam3ya/commitments-chart";
-import { ContributionBadge, Gam3yaBadge } from "@/components/gam3ya/status-badge";
+import { ContributionBadge, Gam3yaBadge, PayoutBadge } from "@/components/gam3ya/status-badge";
 import { Money } from "@/components/money";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { getMyGam3yas, getMyObligations, getMyPayouts, getRecentActivity, getUnreadNotifications } from "@/lib/gam3ya/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getMyGam3yas, getMyObligations, getMyPayouts, getNotifications, getRecentActivity } from "@/lib/data/reads";
 import { addMonthsToKey, diffDays, monthKey, monthRange, todayIn } from "@/lib/engine/dates";
 import { sum } from "@/lib/engine/money";
 import { nextPayout, projection, summarizeMonth, upcomingContributions, contributionStatusOf } from "@/lib/engine/summary";
@@ -23,16 +23,18 @@ export default async function DashboardPage() {
   const today = todayIn();
   const month = monthKey(today);
 
-  const data = await asUser(user, async (tx) => ({
-    gam3yas: await getMyGam3yas(tx, user.userId),
-    obligations: await getMyObligations(tx, user.userId),
-    payouts: await getMyPayouts(tx, user.userId),
-    notifications: await getUnreadNotifications(tx, user.userId, 5),
-    activity: await getRecentActivity(tx, user.userId, 6),
-  }));
+  const [gam3yas, obligations, payouts, notifications, activity] = await Promise.all([
+    getMyGam3yas(user.actor),
+    getMyObligations(user.actor),
+    getMyPayouts(user.actor),
+    getNotifications(user.actor, 5, true),
+    getRecentActivity(user.actor, 6),
+  ]);
+  const data = { gam3yas, obligations, payouts, notifications, activity };
+  const nameOf = new Map(gam3yas.map((g) => [g.gam3ya.id, g.gam3ya.name]));
 
   const summary = summarizeMonth(month, data.obligations, data.payouts, today);
-  const memberGam3yas = data.gam3yas.filter((g) => g.membershipId);
+  const memberGam3yas = data.gam3yas.filter((g) => g.isMember);
   const active = memberGam3yas.filter((g) => g.gam3ya.status === "active" || g.gam3ya.status === "needs_closure");
   const next = nextPayout(data.payouts, today);
   const deadlines = upcomingContributions(data.obligations, today, 5);
@@ -138,7 +140,7 @@ export default async function DashboardPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 {data.gam3yas
                   .filter((g) => g.gam3ya.status !== "completed" && g.gam3ya.status !== "cancelled")
-                  .map(({ gam3ya: g, shares, isOrganizer, membershipId }) => {
+                  .map(({ gam3ya: g, shares, isOrganizer, isMember }) => {
                     const p = progressOf(g.id);
                     const myTurn = data.payouts.find((x) => x.gam3yaId === g.id && x.payoutDate >= today);
                     return (
@@ -154,7 +156,7 @@ export default async function DashboardPage() {
                             </div>
                             <ArrowUpRight className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" />
                           </div>
-                          {membershipId && (
+                          {isMember && (
                             <div className="mt-4 flex items-baseline justify-between">
                               <Money value={myMonthly(g.id)} className="text-lg font-bold" />
                               <span className="text-xs text-muted-foreground">
@@ -235,7 +237,7 @@ export default async function DashboardPage() {
                   {data.notifications.map((n) => (
                     <li key={n.id} className="border-s-2 border-brand ps-3">
                       {renderNotification(n.kind, n.params, locale === "en" ? "en" : "ar").text}
-                      <div className="text-xs text-muted-foreground">{formatInstant(n.createdAt, locale)}</div>
+                      <div className="text-xs text-muted-foreground">{formatInstant(new Date(n.createdAt), locale)}</div>
                     </li>
                   ))}
                 </ul>
@@ -256,11 +258,11 @@ export default async function DashboardPage() {
                   {data.activity.map((a) => (
                     <li key={a.id} className="flex items-start justify-between gap-2">
                       <span>
-                        <Link href={`/gam3yas/${a.gam3yaId}`} className="font-medium hover:underline">{a.gam3yaName}</Link>
+                        <Link href={`/gam3yas/${a.gam3yaId}`} className="font-medium hover:underline">{nameOf.get(a.gam3yaId) ?? "—"}</Link>
                         <span className="text-muted-foreground"> · {t("gam3ya.cycleN", { n: a.cycleNumber })}</span>
-                        <div className="text-xs text-muted-foreground">{formatInstant(a.createdAt, locale)}</div>
+                        <div className="text-xs text-muted-foreground">{formatInstant(new Date(a.createdAt), locale)}</div>
                       </span>
-                      {a.toStatus ? <ContributionBadge status={a.toStatus as "recorded_paid"} /> : null}
+                      {a.toStatus ? (a.kind === "payout" ? <PayoutBadge status={a.toStatus as "confirmed_completed"} /> : <ContributionBadge status={a.toStatus as "recorded_paid"} />) : null}
                     </li>
                   ))}
                 </ul>

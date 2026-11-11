@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   ["/admin", "overview"],
+  ["/admin/approvals", "approvals"],
   ["/admin/users", "users"],
   ["/admin/gam3yas", "gam3yas"],
   ["/admin/requests", "requests"],

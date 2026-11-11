@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { getMyObligations, getMyPayouts } from "@/lib/gam3ya/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getMyObligations, getMyPayouts } from "@/lib/data/reads";
 import { monthKey, todayIn } from "@/lib/engine/dates";
 import { isContributionSettled } from "@/lib/engine/status";
 import { Simulator } from "@/components/gam3ya/simulator";
@@ -10,10 +10,10 @@ export default async function SimulatorPage() {
   const user = await requireUser();
   const t = await getTranslations("simulator");
   const today = todayIn();
-  const data = await asUser(user, async (tx) => ({
-    obligations: (await getMyObligations(tx, user.userId)).filter((o) => !isContributionSettled(o.record)),
-    payouts: (await getMyPayouts(tx, user.userId)).filter((p) => p.record !== "confirmed_completed"),
-  }));
+  const data = {
+    obligations: (await getMyObligations(user.actor)).filter((o) => !isContributionSettled(o.record)),
+    payouts: (await getMyPayouts(user.actor)).filter((p) => p.record !== "confirmed_completed"),
+  };
   return (
     <div className="flex flex-col gap-6">
       <div>

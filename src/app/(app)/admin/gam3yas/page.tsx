@@ -7,7 +7,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Gam3yaBadge } from "@/components/gam3ya/status-badge";
 import { Money } from "@/components/money";
 import { RestoreButton } from "@/components/admin/restore-button";
-import { asUser, requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { listGam3yas } from "@/lib/admin/queries";
 import { formatCivilDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ export default async function AdminGam3yasPage({ searchParams }: { searchParams:
   const sp = await searchParams;
   const status = STATUSES.includes(sp.status as (typeof STATUSES)[number]) ? sp.status! : null;
   const [t, locale] = [await getTranslations(), await getLocale()];
-  const rows = await asUser(user, (tx) => listGam3yas(tx, status));
+  const rows = await listGam3yas(user.actor, status);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,4 +1,5 @@
 import type { ValidationIssue } from "@/lib/engine/validate";
+import { PolicyError } from "@/lib/data/policy";
 
 /** Domain error with a stable code that the UI translates. */
 export class DomainError extends Error {
@@ -11,27 +12,14 @@ export class DomainError extends Error {
   }
 }
 
-const SQLSTATE: Record<string, string> = {
-  "42501": "not_authorized",
-  "23514": "invalid_operation",
-  "23505": "duplicate",
-  "23503": "invalid_reference",
-  P0002: "not_found",
-};
-
-/**
- * Maps database errors to safe, translatable codes. Never leaks SQL details to
- * the client; known activation codes (raised by app.activate_gam3ya) pass through.
- */
+/** Maps any failure to a safe, translatable code — internals never reach the client. */
 export function toDomainError(err: unknown): DomainError {
   if (err instanceof DomainError) return err;
-  const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } };
-  const code = e.cause?.code ?? e.code;
-  const message = e.cause?.message ?? e.message ?? "";
-  const known = /^(ACTIVATION_[A-Z_]+|CHANGE_[A-Z_]+)$/.exec(message.trim());
-  if (known) return new DomainError(known[1]!.toLowerCase());
-  if (/reason is required/.test(message)) return new DomainError("reason_required");
-  if (/read-only/.test(message)) return new DomainError("archived_read_only");
-  if (/status unchanged/.test(message)) return new DomainError("status_unchanged");
-  return new DomainError((code && SQLSTATE[code]) || "unexpected_error");
+  if (err instanceof PolicyError) return new DomainError(err.code);
+  const e = err as { code?: number | string; name?: string };
+  if (e?.name === "ZodError") return new DomainError("validation");
+  if (e?.code === 6) return new DomainError("duplicate");
+  if (e?.code === 5) return new DomainError("not_found");
+  if (e?.code === 10) return new DomainError("conflict_retry");
+  return new DomainError("unexpected_error");
 }

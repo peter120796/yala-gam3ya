@@ -1,17 +1,15 @@
-import Link from "next/link";
-import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SettingsForms } from "@/components/settings/settings-forms";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { notificationPreferences } from "@/lib/db/schema";
+import { ChangePasswordButton } from "@/components/settings/change-password";
+import { requireUser } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const t = await getTranslations("settings");
-  const [prefs] = await asUser(user, (tx) => tx.select().from(notificationPreferences).where(eq(notificationPreferences.userId, user.userId)));
+  const prefs = user.notificationPrefs;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-extrabold sm:text-3xl">{t("title")}</h1>
@@ -31,9 +29,7 @@ export default async function SettingsPage() {
           <CardTitle>{t("security")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="outline">
-            <Link href="/set-password">{t("changePassword")}</Link>
-          </Button>
+          <ChangePasswordButton email={user.email} />
         </CardContent>
       </Card>
       <Card>

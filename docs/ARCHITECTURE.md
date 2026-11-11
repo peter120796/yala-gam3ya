@@ -25,18 +25,18 @@ Priority order: **correct financial calculations → security → simplicity →
 | Propose turn swap | ✅ | ✅ | ❌ |
 | Approve swaps, restore archive, users, roles, policies, audit | ✅ | Audit of own Gam3yas only | ❌ |
 
-### Enforcement layers
-1. **Database (authoritative):** RLS on every table; grants revoked from `anon`/`authenticated` then re-granted minimally (Supabase grants everything by default — the migration undoes that); financial writes only through `SECURITY DEFINER` functions in the private `app` schema that authorize, validate, write history and audit rows in one transaction; triggers freeze financial config after activation and forbid direct status changes; history and audit tables are append-only.
-2. **Server:** every request runs inside `runAsUser()` — the transaction switches to role `authenticated` and installs the verified JWT claims, so Drizzle queries are subject to the same RLS as the Supabase API. Server actions validate with Zod, check the session, rate-limit, and map errors to safe codes.
-3. **UI:** hides what you can't do — convenience only.
-
-Super-admin power additionally requires an MFA-verified session (`aal = aal2`) **in the database** (`app.is_super_admin()`).
+### Enforcement layers (Firebase)
+1. **Firestore rules deny all client access.** The browser uses Firebase Auth only to obtain an ID token; it never reads or writes Firestore.
+2. **Server is the only data path.** `/api/auth/session` exchanges a fresh ID token for an httpOnly `__session` cookie (verified with revocation checks on every request). Every page, server action and route builds an `Actor` (role, active, approval, MFA) and every service calls the pure rules in `src/lib/data/policy.ts` before reading or writing — ports of the original RLS policies and SQL functions, unit-tested.
+3. **Writes are transactions** that update the record, append a history row (`gam3yas/{id}/records`), append an audit log, maintain open-item counters (for O(1) completion checks) and create idempotent notifications (document id = hash of a dedupe key).
+4. **Activation** generates the schedule with the tested engine, writes it while the Gam3ya is still an invisible draft, verifies document counts, then flips status in a transaction that checks the draft wasn't edited meanwhile.
+5. **Super-admin power requires a TOTP-verified session** (`firebase.sign_in_second_factor` in the session cookie) — checked server-side on every admin call.
 
 ## Notifications
-Event notifications (payout completed, schedule updated, Gam3ya completed) are created by DB triggers in the same transaction. Date reminders (3 days before, 1 day before, first overdue day, payout this week / next month) come from `app.generate_reminders()`, run by the daily job. Every row has a unique `dedupe_key` → idempotent. Email delivery claims rows with `FOR UPDATE SKIP LOCKED`. The provider interface (`src/lib/notifications/provider.ts`) lets SMS/WhatsApp be added later; in development only the console provider runs unless `NOTIFICATIONS_EMAIL_ENABLED=true`.
+Event notifications (payout completed, schedule updated, Gam3ya completed, account approved) are created inside the same transaction as the change. Date reminders (3 days before, 1 day before, first overdue day, payout this week / next month) come from `computeReminders()` (pure, tested), run by the daily job. Notification document ids are hashes of a dedupe key → idempotent. Email delivery claims each row in a transaction before sending. The provider interface (`src/lib/notifications/provider.ts`) lets SMS/WhatsApp be added later; in development only the console provider runs unless `NOTIFICATIONS_EMAIL_ENABLED=true`.
 
 ## Assumptions to confirm with the product owner
 - No organizer commission/fee; no penalty amounts for late payment (statuses only).
-- Members must have accounts (invite-only); no name-only participants.
+- Members must have accounts; self sign-up is allowed but accounts stay **pending** until a super admin approves them (bulk approve/reject).
 - Only super admins create Gam3yas.
 - Turn swaps are the only active-schedule change in MVP; replacing a member mid-Gam3ya is future work.

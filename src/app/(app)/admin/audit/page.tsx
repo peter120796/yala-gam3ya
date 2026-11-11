@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { asUser, requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { listAudit } from "@/lib/admin/queries";
 import { formatInstant } from "@/lib/format";
 
@@ -10,7 +10,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const user = await requireAdmin();
   const page = Math.max(0, Number((await searchParams).page) || 0);
   const [t, locale] = [await getTranslations("admin"), await getLocale()];
-  const { rows, hasMore } = await asUser(user, (tx) => listAudit(tx, page));
+  const { rows, hasMore } = await listAudit(user.actor, page);
   return (
     <Card>
       <CardContent className="pt-4">

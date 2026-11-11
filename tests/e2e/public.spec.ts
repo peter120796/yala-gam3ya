@@ -34,6 +34,19 @@ test.describe("public pages", () => {
     expect([302, 307, 401]).toContain(res.status());
   });
 
+  test("sign-up page is public and linked from login", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "اعمل حساب جديد" }).click();
+    await expect(page).toHaveURL(/\/signup/);
+    await expect(page.getByRole("heading", { name: "اعمل حساب" })).toBeVisible();
+    await expect(page.getByLabel(/الموبايل/)).toBeVisible();
+  });
+
+  test("pending page requires a session", async ({ page }) => {
+    await page.goto("/pending");
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test("cron endpoint requires the secret", async ({ request }) => {
     const res = await request.get("/api/cron/daily");
     expect(res.status()).toBe(401);

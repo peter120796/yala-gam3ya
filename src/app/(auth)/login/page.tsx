@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const KNOWN_ERRORS = new Set(["linkInvalid", "accountDeactivated", "invalidCredentials"]);
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
-  const { next, error } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string; mfa?: string }> }) {
+  const { next, error, mfa } = await searchParams;
   if (await getSession()) redirect("/");
   const t = await getTranslations("auth");
   return (
@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <CardDescription>{t("signInSubtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <LoginForm next={next} initialError={error && KNOWN_ERRORS.has(error) ? error : undefined} />
+        <LoginForm next={next} initialError={error && KNOWN_ERRORS.has(error) ? error : undefined} notice={mfa === "enrolled" ? t("mfaEnrolled") : undefined} />
       </CardContent>
     </Card>
   );

@@ -8,7 +8,7 @@ The texts in `src/content/legal.ts` are **reviewable drafts**, not final and not
 
 ## Personal data — Law No. 151/2020 (PDPL) and its Executive Regulations
 - [ ] Lawful basis & consent wording for account data and Gam3ya records.
-- [ ] **Cross-border transfer:** hosting on Supabase (EU) and Vercel — licensing/permit needs from the Personal Data Protection Centre.
+- [ ] **Cross-border transfer:** hosting on Google Cloud / Firebase (EU regions) — licensing/permit needs from the Personal Data Protection Centre.
 - [ ] Controller registration / licensing obligations and DPO requirement.
 - [ ] Data-subject rights process and response deadlines; retention periods for financial history after account deactivation/deletion.
 - [ ] Breach notification procedure and timelines.

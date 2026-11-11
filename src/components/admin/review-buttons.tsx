@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { reviewRequestAction } from "@/app/actions/admin";
 import { useErrorText } from "@/lib/use-error-text";
 
-export function ReviewButtons({ id }: { id: string }) {
+export function ReviewButtons({ id, gam3yaId }: { id: string; gam3yaId: string }) {
   const t = useTranslations("admin");
   const errorText = useErrorText();
   const [pending, start] = useTransition();
   const run = (approve: boolean) =>
     start(async () => {
-      const res = await reviewRequestAction({ id, approve, note: null });
+      const res = await reviewRequestAction({ id, gam3yaId, approve, note: null });
       if (res.ok) toast.success(approve ? t("approve") : t("reject"));
       else toast.error(errorText(res));
     });

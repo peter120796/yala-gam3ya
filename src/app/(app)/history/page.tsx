@@ -4,19 +4,19 @@ import { Card } from "@/components/ui/card";
 import { Money } from "@/components/money";
 import { Gam3yaBadge } from "@/components/gam3ya/status-badge";
 import { ExportButtons } from "@/components/gam3ya/export-buttons";
-import { asUser, requireUser } from "@/lib/auth/session";
-import { getMyGam3yas, getMyObligations, getMyPayouts } from "@/lib/gam3ya/queries";
+import { requireUser } from "@/lib/auth/session";
+import { getMyGam3yas, getMyObligations, getMyPayouts } from "@/lib/data/reads";
 import { sum } from "@/lib/engine/money";
 import { formatCivilDate } from "@/lib/format";
 
 export default async function HistoryPage() {
   const user = await requireUser();
   const [t, locale] = [await getTranslations(), await getLocale()];
-  const data = await asUser(user, async (tx) => ({
-    gam3yas: (await getMyGam3yas(tx, user.userId)).filter((g) => g.membershipId && (g.gam3ya.status === "completed" || g.gam3ya.status === "cancelled")),
-    obligations: await getMyObligations(tx, user.userId),
-    payouts: await getMyPayouts(tx, user.userId),
-  }));
+  const data = {
+    gam3yas: (await getMyGam3yas(user.actor)).filter((g) => g.isMember && (g.gam3ya.status === "completed" || g.gam3ya.status === "cancelled")),
+    obligations: await getMyObligations(user.actor),
+    payouts: await getMyPayouts(user.actor),
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -46,7 +46,7 @@ export default async function HistoryPage() {
                   </p>
                   {g.completedAt && (
                     <p className="text-xs text-muted-foreground">
-                      {t("history.completedOn", { date: new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(g.completedAt) })}
+                      {t("history.completedOn", { date: new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(new Date(g.completedAt)) })}
                     </p>
                   )}
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">

@@ -3,14 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { PublishPolicyForm } from "@/components/admin/publish-policy-form";
-import { asUser, requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { listPolicies } from "@/lib/admin/queries";
 import { formatInstant } from "@/lib/format";
 
 export default async function PoliciesPage() {
   const user = await requireAdmin();
   const [t, locale] = [await getTranslations(), await getLocale()];
-  const rows = await asUser(user, (tx) => listPolicies(tx));
+  const rows = await listPolicies(user.actor);
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { InviteUserDialog, UserRowActions } from "@/components/admin/user-actions";
-import { asUser, requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { listUsers } from "@/lib/admin/queries";
 
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
@@ -15,7 +15,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
   const q = sp.q?.trim().slice(0, 80) || null;
   const page = Math.max(0, Number(sp.page) || 0);
   const [t, locale] = [await getTranslations(), await getLocale()];
-  const { rows, hasMore } = await asUser(user, (tx) => listUsers(tx, q, page));
+  const { rows, hasMore } = await listUsers(user.actor, q, page);
   const link = (p: number) => `/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
 
   return (
@@ -51,7 +51,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                       <div className="text-xs text-muted-foreground" dir="ltr">{r.email}</div>
                     </TD>
                     <TD>{t(`admin.roles.${r.role}` as "admin.roles.member")}</TD>
-                    <TD>{r.isActive ? <Badge>{t("admin.active")}</Badge> : <Badge variant="danger">{t("admin.inactive")}</Badge>}</TD>
+                    <TD>
+                      <div className="flex flex-wrap gap-1">
+                        {r.isActive ? <Badge>{t("admin.active")}</Badge> : <Badge variant="danger">{t("admin.inactive")}</Badge>}
+                        {r.approvalStatus !== "approved" && (
+                          <Badge variant={r.approvalStatus === "pending" ? "warning" : "danger"}>{t(`approvals.${r.approvalStatus}` as "approvals.pending")}</Badge>
+                        )}
+                      </div>
+                    </TD>
                     <TD className="num text-end">{r.memberships}{r.organizes ? ` · ${r.organizes}★` : ""}</TD>
                     <TD className="text-xs">{new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(r.createdAt)}</TD>
                     <TD className="text-end">
