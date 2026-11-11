@@ -25,15 +25,21 @@ export function setBackendsForTests(db: Firestore | null, auth: Auth | null = nu
   authOverride = auth;
 }
 
-let configured = false;
+// Next.js can load this module in several server bundles; they all share one
+// Firestore instance, so remember "already configured" process-wide.
+const shared = globalThis as { __yalaFirestore?: Firestore };
 export function db(): Firestore {
   if (dbOverride) return dbOverride;
-  const f = getFirestore(app());
-  if (!configured) {
-    f.settings({ ignoreUndefinedProperties: true });
-    configured = true;
+  if (!shared.__yalaFirestore) {
+    const f = getFirestore(app());
+    try {
+      f.settings({ ignoreUndefinedProperties: true });
+    } catch {
+      // Already configured or in use — keep the existing instance.
+    }
+    shared.__yalaFirestore = f;
   }
-  return f;
+  return shared.__yalaFirestore;
 }
 
 export function adminAuth(): Auth {
