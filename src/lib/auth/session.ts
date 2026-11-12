@@ -8,6 +8,7 @@ import type { Actor } from "@/lib/data/policy";
 import type { ApprovalStatus, NotificationPrefs, PolicyVersionDoc, Role, UserDoc } from "@/lib/data/types";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/data/types";
 import { decodeSessionCookie, SESSION_COOKIE } from "./cookie";
+import { effectiveRole } from "./admin-emails";
 
 export interface Session {
   userId: string;
@@ -76,7 +77,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const snap = await refs.user(session.userId).get();
   if (!snap.exists) return null;
-  const u = snap.data()!;
+  const stored = snap.data()!;
+  // Admin rights only for the emails in ADMIN_EMAILS.
+  const u = { ...stored, role: effectiveRole(stored.role, session.email) };
   const required = (await currentPolicies()).filter((p) => p.doc.requiresAcceptance);
   const needsOnboarding = required.some((p) => u.acceptedPolicies?.[p.doc.kind] !== p.id) || required.length < 2;
   const organizes = await refs.gam3yas().where("organizerIds", "array-contains", session.userId).limit(1).get();

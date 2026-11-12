@@ -5,6 +5,7 @@ import { adminAuth } from "@/lib/firebase/admin";
 import { ensureProfile } from "@/lib/data/users";
 import { cookieOptions, decodeSessionCookie, encodeSessionCookie, ONE_YEAR, SESSION_COOKIE } from "@/lib/auth/cookie";
 import { rateLimit } from "@/lib/rate-limit";
+import { effectiveRole } from "@/lib/auth/admin-emails";
 
 const body = z.object({
   idToken: z.string().min(20).max(5000),
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
   });
   if (!profile.isActive) return NextResponse.json({ error: "accountDeactivated" }, { status: 403 });
 
-  const isAdmin = profile.role === "super_admin";
+  const isAdmin = effectiveRole(profile.role, decoded.email) === "super_admin";
   const expiresIn = (isAdmin ? 12 * 60 * 60 : 5 * 24 * 60 * 60) * 1000;
   const sessionCookie = await adminAuth().createSessionCookie(parsed.data.idToken, { expiresIn });
   store.set(SESSION_COOKIE, encodeSessionCookie({ s: sessionCookie, l: profile.locale ?? current.l }), cookieOptions(Math.max(expiresIn / 1000, ONE_YEAR)));

@@ -9,6 +9,7 @@ import { PrivacyToggle } from "@/components/shell/privacy-toggle";
 import { UserMenu } from "@/components/shell/user-menu";
 import { requireUser } from "@/lib/auth/session";
 import { unreadCount } from "@/lib/data/reads";
+import { publicEnv } from "@/lib/env";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -61,6 +62,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link className="hover:underline" href="/legal/disclaimer">{t("legal.disclaimer")}</Link>
           <Link className="hover:underline" href="/legal/subscription">{t("legal.subscription")}</Link>
           <Link className="hover:underline" href="/legal/contact">{t("legal.contact")}</Link>
+          <Link className="hover:underline" href="/about">{t("about.link")}</Link>
+          <span className="ms-auto" dir="ltr">v{publicEnv.appVersion}</span>
         </nav>
       </footer>
       <MobileTabBar isAdmin={isAdmin} />

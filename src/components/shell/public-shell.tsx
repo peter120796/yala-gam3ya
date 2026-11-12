@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Logo } from "@/components/brand/logo";
 import { LocaleSwitcher } from "@/components/shell/locale-switcher";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { publicEnv } from "@/lib/env";
 
 export async function PublicShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   const t = await getTranslations();
@@ -27,7 +28,9 @@ export async function PublicShell({ children, wide = false }: { children: React.
           <Link className="hover:underline" href="/legal/privacy">{t("legal.privacy")}</Link>
           <Link className="hover:underline" href="/legal/disclaimer">{t("legal.disclaimer")}</Link>
           <Link className="hover:underline" href="/legal/contact">{t("legal.contact")}</Link>
+          <Link className="hover:underline" href="/about">{t("about.link")}</Link>
         </nav>
+        <p className="mt-2" dir="ltr">v{publicEnv.appVersion}</p>
       </footer>
     </div>
   );

@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+// Shown in the footer and on the About page.
+const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string };
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -16,6 +21,7 @@ const nextConfig: NextConfig = {
   // request-time rendering model (simpler, no cache-key leakage risk).
   cacheComponents: false,
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   turbopack: {
     rules: {
       "*.css": {

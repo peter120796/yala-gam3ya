@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decodeSessionCookie, SESSION_COOKIE } from "@/lib/auth/cookie";
 
-const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/auth/", "/legal", "/api/cron/", "/api/auth/"];
+const PUBLIC_PREFIXES = ["/login", "/signup", "/forgot-password", "/auth/", "/legal", "/about", "/api/cron/", "/api/auth/"];
 
 /**
  * Optimistic redirect for signed-out visitors (presence check only). The real

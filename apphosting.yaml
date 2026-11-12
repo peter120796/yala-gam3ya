@@ -33,3 +33,6 @@ env:
   - variable: NOTIFICATIONS_EMAIL_ENABLED
     value: "false"
     availability: [RUNTIME]
+  - variable: ADMIN_EMAILS
+    value: petrosatef@gmail.com
+    availability: [RUNTIME]

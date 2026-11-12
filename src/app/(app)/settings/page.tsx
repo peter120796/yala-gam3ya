@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { publicEnv } from "@/lib/env";
 export default async function SettingsPage() {
   const user = await requireUser();
   const t = await getTranslations("settings");
+  const ta = await getTranslations("about");
   const prefs = user.notificationPrefs;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -43,6 +45,11 @@ export default async function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      <p className="flex items-center justify-center gap-2 pb-2 text-xs text-muted-foreground">
+        <Link href="/about" className="hover:underline">{ta("link")}</Link>
+        <span aria-hidden>·</span>
+        <span dir="ltr">v{publicEnv.appVersion}</span>
+      </p>
     </div>
   );
 }

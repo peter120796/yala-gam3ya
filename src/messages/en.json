@@ -542,5 +542,19 @@
     "signedUp": "Signed up",
     "phone": "Mobile",
     "pendingCount": "Pending sign-up requests"
+  },
+  "about": {
+    "link": "Made by Peter",
+    "title": "About Yala-Gam3ya",
+    "appBlurb": "Yala-Gam3ya helps families and friends in Egypt organize their rotating savings groups — who pays when and who receives when — clearly, in one place. It only keeps records; it never collects or moves money.",
+    "madeBy": "Made by Peter Atef",
+    "role": "Business Support Application Specialist",
+    "company": "Kashier Payment Solutions · Cairo",
+    "bio": "I build internal tools and automations that make day-to-day work smoother for Operations and Underwriting teams — from CRM workflows to data pipelines and full-stack web apps.",
+    "skills": "Skills",
+    "contact": "Get in touch",
+    "email": "Email",
+    "whatsapp": "WhatsApp",
+    "version": "Version {version}"
   }
 }
