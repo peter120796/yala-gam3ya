@@ -6,6 +6,7 @@ import { ensureProfile } from "@/lib/data/users";
 import { cookieOptions, decodeSessionCookie, encodeSessionCookie, ONE_YEAR, SESSION_COOKIE } from "@/lib/auth/cookie";
 import { rateLimit } from "@/lib/rate-limit";
 import { effectiveRole } from "@/lib/auth/admin-emails";
+import { publicEnv } from "@/lib/env";
 
 const body = z.object({
   idToken: z.string().min(20).max(5000),
@@ -21,11 +22,31 @@ const body = z.object({
     .optional(),
 });
 
-/** Same-origin check — the session endpoint must not be callable cross-site. */
+/**
+ * Same-origin check — the session endpoint must not be callable cross-site.
+ * Accepts the host the request came in on, or the public site address
+ * (the short Firebase Hosting domain proxies to App Hosting).
+ */
 async function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
-  const host = (await headers()).get("x-forwarded-host") ?? req.headers.get("host");
-  return !!origin && !!host && new URL(origin).host === host;
+  if (!origin) return false;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return false;
+  }
+  const h = await headers();
+  const allowed = new Set([h.get("x-forwarded-host"), req.headers.get("host"), siteHost()].filter(Boolean));
+  return allowed.has(originHost);
+}
+
+function siteHost() {
+  try {
+    return new URL(publicEnv.siteUrl).host;
+  } catch {
+    return null;
+  }
 }
 
 const safeNext = (n?: string) => (n && n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/");

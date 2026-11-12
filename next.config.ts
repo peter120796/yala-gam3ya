@@ -8,6 +8,16 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 // Shown in the footer and on the About page.
 const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string };
 
+// The public address (e.g. the short Firebase Hosting domain that proxies to
+// App Hosting) — server actions must accept form posts coming from it.
+const siteHost = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "").host;
+  } catch {
+    return null;
+  }
+})();
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -22,6 +32,7 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   poweredByHeader: false,
   env: { NEXT_PUBLIC_APP_VERSION: version },
+  experimental: siteHost ? { serverActions: { allowedOrigins: [siteHost] } } : undefined,
   turbopack: {
     rules: {
       "*.css": {

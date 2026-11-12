@@ -23,7 +23,7 @@ env:
 
   # We'll replace this with the real App Hosting URL after the first deploy.
   - variable: NEXT_PUBLIC_SITE_URL
-    value: https://yala-gam3ya--yala-gam3ya.europe-west4.hosted.app
+    value: https://yala-gam3ya.web.app
     availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_SUPPORT_EMAIL
     value: petrosatef@gmail.com
