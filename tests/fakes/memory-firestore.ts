@@ -60,6 +60,8 @@ export class MemoryFirestore {
     return new Query(this, { group: name });
   }
   async getAll(...refs: DocRef[]) {
+    // Real Firestore rejects an empty getAll(); mirror that so tests catch it.
+    if (!refs.length) throw new Error('Function "Firestore.getAll()" requires at least 1 argument.');
     return refs.map((r) => r.snap());
   }
   async runTransaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
@@ -257,6 +259,8 @@ class Transaction {
     return target.get();
   }
   async getAll(...refs: DocRef[]) {
+    // Real Firestore rejects an empty getAll(); mirror that so tests catch it.
+    if (!refs.length) throw new Error('Function "Firestore.getAll()" requires at least 1 argument.');
     return refs.map((r) => r.snap());
   }
   set(ref: DocRef, data: Data, opts?: { merge?: boolean }) {

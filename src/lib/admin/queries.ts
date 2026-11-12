@@ -135,7 +135,9 @@ export async function listPendingRequests(actor: Actor) {
   assertSuperAdmin(actor);
   const snap = await db().collectionGroup("changeRequests").where("status", "==", "pending").orderBy("createdAt").get();
   const rows = snap.docs.map((d) => ({ id: d.id, gam3yaId: d.ref.parent.parent!.id, ...(d.data() as ChangeRequestDoc) }));
-  const gs = await db().getAll(...[...new Set(rows.map((r) => r.gam3yaId))].map((id) => refs.gam3ya(id)));
+  const ids = [...new Set(rows.map((r) => r.gam3yaId))];
+  // getAll() throws when called with no references.
+  const gs = ids.length ? await db().getAll(...ids.map((id) => refs.gam3ya(id))) : [];
   const names = new Map(gs.filter((s) => s.exists).map((s) => [s.id, (s.data() as Gam3yaDoc).name]));
   const people = await usersByIds(rows.map((r) => r.proposedBy));
   return rows.map((r) => ({ r, gam3yaName: names.get(r.gam3yaId) ?? "—", proposer: people.get(r.proposedBy)?.displayName ?? "—" }));
