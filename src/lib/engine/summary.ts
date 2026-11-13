@@ -29,17 +29,16 @@ export interface MonthSummary {
   recordedPaidContributions: Piasters;
   waivedContributions: Piasters;
   outstandingContributions: Piasters;
-  overdueContributions: Piasters;
   expectedPayouts: Piasters;
   confirmedPayouts: Piasters;
 }
 
 export function contributionStatusOf(o: MemberObligation, today: CivilDate): ContributionStatus {
-  return deriveContributionStatus(o.dueDate, o.record, today, o.graceDays);
+  return deriveContributionStatus(o.dueDate, o.record, today);
 }
 
 export function payoutStatusOf(p: MemberPayout, today: CivilDate): PayoutStatus {
-  return derivePayoutStatus(p.payoutDate, p.record, today, p.graceDays);
+  return derivePayoutStatus(p.payoutDate, p.record, today);
 }
 
 /**
@@ -50,7 +49,6 @@ export function summarizeMonth(
   month: string,
   obligations: readonly MemberObligation[],
   payouts: readonly MemberPayout[],
-  today: CivilDate,
 ): MonthSummary {
   const inMonth = obligations.filter((o) => monthKey(o.dueDate) === month);
   const payoutsInMonth = payouts.filter((p) => monthKey(p.payoutDate) === month);
@@ -62,7 +60,6 @@ export function summarizeMonth(
     recordedPaidContributions: by((o) => o.record === "recorded_paid"),
     waivedContributions: by((o) => o.record === "waived"),
     outstandingContributions: by((o) => !isContributionSettled(o.record)),
-    overdueContributions: by((o) => contributionStatusOf(o, today) === "overdue"),
     expectedPayouts: sum(payoutsInMonth.map((p) => p.amount)),
     confirmedPayouts: sum(payoutsInMonth.filter((p) => p.record === "confirmed_completed").map((p) => p.amount)),
   };

@@ -39,7 +39,7 @@ export async function runDailyJob() {
       obligations: obs.docs.map((d) => ({ id: d.id, ...(d.data() as ObligationDoc) })),
       payouts: pays.docs.map((d) => ({ id: d.id, ...(d.data() as PayoutDoc) })),
       prefs: new Map([...people].map(([id, u]) => [id, u.notificationPrefs])),
-      activeUsers: new Set([...people].filter(([, u]) => u.isActive && u.approvalStatus === "approved").map(([id]) => id)),
+      activeUsers: new Set([...people].filter(([, u]) => u.isActive && u.approvalStatus === "approved" && u.signupSource !== "guest").map(([id]) => id)),
     });
     if (!reminders.length) continue;
     const existing = await db().getAll(...reminders.map((r) => refs.notification(r.dedupeKey)));

@@ -5,7 +5,7 @@ import { defineAction } from "@/lib/actions";
 import { publicEnv } from "@/lib/env";
 import { approvalIds } from "@/lib/admin/queries";
 import { activateDraft, deleteDraft, restoreGam3ya, reviewChangeRequest, saveDraft } from "@/lib/data/gam3yas";
-import { inviteUser, setApproval, setUserActive, setUserRole } from "@/lib/data/users";
+import { createGuest, inviteUser, setApproval, setUserActive, setUserRole } from "@/lib/data/users";
 import { publishPolicy } from "@/lib/data/policies";
 import { getEmailProvider } from "@/lib/notifications/provider";
 import { renderInvite } from "@/lib/notifications/render";
@@ -34,6 +34,17 @@ export const inviteUserAction = defineAction(
     return { id: uid, link, emailed: sent.ok && getEmailProvider().name !== "console" };
   },
   { ...admin, name: "invite", limit: 30 },
+);
+
+/** Add a person by name only (no account) so they can hold shares. */
+export const createGuestAction = defineAction(
+  z.object({ displayName: z.string().trim().min(2).max(80) }),
+  async ({ user, input }) => {
+    const guest = await createGuest(user.actor, input.displayName);
+    revalidatePath("/admin/users");
+    return guest;
+  },
+  { ...admin, name: "create-guest" },
 );
 
 export const setUserRoleAction = defineAction(

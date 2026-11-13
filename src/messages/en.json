@@ -93,7 +93,9 @@
     "accountDeactivated": "This account is deactivated. Contact an administrator if this is a mistake.",
     "rateLimited": "Too many attempts. Please wait and try again.",
     "mfaRelogin": "To continue, please sign in again (you'll enter your authenticator code if it's set up).",
-    "mfaEnrolled": "Two-step verification is on ✓ Sign in again with your code."
+    "mfaEnrolled": "Two-step verification is on ✓ Sign in again with your code.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "onboarding": {
     "title": "Before we start",
@@ -109,9 +111,9 @@
     "title": "Settings",
     "profile": "Your details",
     "displayName": "Display name",
-    "displayNameHint": "This is the name other members of your Gam3yas see.",
+    "displayNameHint": "Only the admin sees your name — other members see you as a number (Member 1, 2, 3…).",
     "phone": "Mobile number",
-    "phoneHint": "Visible only to your Gam3ya organizers.",
+    "phoneHint": "Visible only to the admin.",
     "preferences": "Preferences",
     "privacyMode": "Privacy mode",
     "privacyModeHint": "Hides amounts on screen (handy in public places).",
@@ -154,7 +156,9 @@
     "pageNotFound": "This page doesn't exist.",
     "somethingWrong": "Something went wrong",
     "user_not_approved": "That user's account isn't approved yet.",
-    "conflict_retry": "Someone else changed this at the same moment. Please try again."
+    "conflict_retry": "Someone else changed this at the same moment. Please try again.",
+    "guest_not_allowed": "Someone without an account can’t be an organizer or admin.",
+    "payment_method_details_not_allowed": "Write the way only — links, emails, phone, wallet, account or card numbers aren't allowed."
   },
   "issues": {
     "INVALID_TOTAL_SHARES": "Number of shares must be between {min} and {max}.",
@@ -240,8 +244,7 @@
     "insights": "Quick insights",
     "insightNextMonth": "You have <amount></amount> in scheduled contributions next month.",
     "insightPayoutIn": "Your next payout is expected {when}.",
-    "insightEndingQuarter": "{count, plural, one {One of your Gam3yas ends} other {# of your Gam3yas end}} this quarter.",
-    "overdueBanner": "You have {count, plural, one {# overdue contribution} other {# overdue contributions}} — <amount></amount>"
+    "insightEndingQuarter": "{count, plural, one {One of your Gam3yas ends} other {# of your Gam3yas end}} this quarter."
   },
   "gam3ya": {
     "organizer": "Organizer",
@@ -282,7 +285,9 @@
     "reportPaid": "Report I paid",
     "confirmReceipt": "Confirm I received it",
     "recordedOn": "Recorded {date}",
-    "back": "All Gam3yas"
+    "back": "All Gam3yas",
+    "member": "Member",
+    "memberN": "Member {n}"
   },
   "manage": {
     "title": "Manage Gam3ya",
@@ -388,7 +393,6 @@
     "activeGam3yas": "Active Gam3yas",
     "completedGam3yas": "Completed Gam3yas",
     "upcomingPayouts": "Scheduled payouts (30 days)",
-    "overdueContributions": "Overdue recorded contributions",
     "needsAction": "Gam3yas needing organizer action",
     "informational": "All amounts are informational organizing figures — not platform transaction volume.",
     "inviteUser": "Invite user",
@@ -451,8 +455,6 @@
     "frequency": "Frequency",
     "startDate": "Start date",
     "dueDay": "Due day of month",
-    "payoutOffset": "Payout days after due date",
-    "graceDays": "Grace days before overdue",
     "allowSelfReport": "Let members report their own payments",
     "addParticipant": "Add participant",
     "assignShare": "Share holder",
@@ -474,7 +476,13 @@
     "draftSaved": "Draft saved.",
     "deleteDraft": "Delete draft",
     "memberContribution": "Contribution",
-    "selectUser": "Select a user"
+    "selectUser": "Select a user",
+    "addGuest": "Add someone who has no account",
+    "guestName": "Their name",
+    "addGuestButton": "Add",
+    "addGuestHint": "They can’t sign in and won’t get reminders — the organizer records their payments. They’ll appear in the list below, and on the first empty share.",
+    "guestAdded": "{name} added",
+    "guestTag": "no account"
   },
   "legal": {
     "terms": "Terms & Conditions",
@@ -556,5 +564,18 @@
     "email": "Email",
     "whatsapp": "WhatsApp",
     "version": "Version {version}"
+  },
+  "payMethod": {
+    "title": "How I'll pay",
+    "who": "Only the admin and this Gam3ya's organizer can read this.",
+    "placeholder": "e.g. Cash to the organizer on the 1st, or an InstaPay transfer",
+    "hint": "Write the way only — no links, wallet numbers, account or card numbers.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "none": "You haven't said how you'll pay yet.",
+    "saved": "Saved",
+    "membersTitle": "How members will pay",
+    "notSet": "Not set yet"
   }
 }

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions";
 import { contributionRecordSchema, payoutRecordSchema } from "@/lib/validation/gam3ya";
-import { evaluateLifecycle, proposeSwap, recordContribution, recordPayout } from "@/lib/data/gam3yas";
+import { evaluateLifecycle, proposeSwap, recordContribution, recordPayout, setPaymentMethod } from "@/lib/data/gam3yas";
 
 const docId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 
@@ -49,3 +49,14 @@ export const evaluateLifecycleAction = defineAction(
   { name: "evaluate", limit: 20 },
 );
 
+
+/** "How I'll pay" — the member's own note for one Gam3ya (empty clears it). */
+export const setPaymentMethodAction = defineAction(
+  z.object({ gam3yaId: docId, text: z.string().max(400) }),
+  async ({ user, input }) => {
+    const text = await setPaymentMethod(user.actor, input.gam3yaId, input.text);
+    revalidatePath(`/gam3yas/${input.gam3yaId}`);
+    return { text };
+  },
+  { name: "set-payment-method", limit: 30 },
+);

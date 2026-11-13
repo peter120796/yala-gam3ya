@@ -12,8 +12,9 @@ import { ContributionBadge, Gam3yaBadge, PayoutBadge } from "@/components/gam3ya
 import { MemberActions } from "@/components/gam3ya/member-actions";
 import { ManagePanel } from "@/components/gam3ya/manage-panel";
 import { ExportButtons } from "@/components/gam3ya/export-buttons";
+import { PaymentMethodCard } from "@/components/gam3ya/payment-method-card";
 import { requireUser } from "@/lib/auth/session";
-import { getGam3yaForViewer, getManageData, getMyObligations, getMyPayouts, getOrganizerNames, getTurns } from "@/lib/data/reads";
+import { getGam3yaForViewer, getManageData, getMyObligations, getMyPaymentMethod, getMyPayouts, getOrganizerNames, getTurns, type TurnRow } from "@/lib/data/reads";
 import { canManage } from "@/lib/data/policy";
 import { todayIn, compareDates } from "@/lib/engine/dates";
 import { multiply, sum } from "@/lib/engine/money";
@@ -40,13 +41,16 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
   const g0 = await getGam3yaForViewer(user.actor, id);
   if (!g0 || g0.status === "draft") notFound();
   const manage = canManage(user.actor, g0);
-  const [organizers, turns0, obligations0, payouts0, manageData] = await Promise.all([
+  const [organizers, turns0, obligations0, payouts0, manageData, myPaymentMethod] = await Promise.all([
     getOrganizerNames(g0),
     getTurns(user.actor, g0),
     getMyObligations(user.actor, id),
     getMyPayouts(user.actor, id),
     manage ? getManageData(user.actor, id) : Promise.resolve(null),
+    getMyPaymentMethod(user.actor, g0),
   ]);
+  // Members are "Member 1, 2, 3…" to everyone except the admin.
+  const who = (h: TurnRow["holders"][number]) => (h.is_me ? t("common.you") : (h.display_name ?? t("gam3ya.memberN", { n: h.member_no })));
   const data = { g: g0, manage, organizers, turns: turns0, obligations: obligations0, payouts: payouts0, manageData, pending: manageData?.pending ?? [] };
 
   const { g, turns, obligations, payouts } = data;
@@ -111,7 +115,7 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
                 {g.dueDay ? <Info label={t("gam3ya.dueDay")}>{t("gam3ya.dueDayValue", { day: g.dueDay })}</Info> : null}
                 <Info label={t("gam3ya.remainingCycles")}><span className="num">{Math.max(0, g.totalShares - elapsed)}</span></Info>
                 <Info label={t("gam3ya.currentRecipient")}>
-                  {current ? current.holders.map((h) => (h.is_me ? t("common.you") : h.display_name)).join(" + ") : "—"}
+                  {current ? current.holders.map(who).join(" + ") : "—"}
                 </Info>
                 {obligations.length > 0 && (
                   <>
@@ -134,6 +138,11 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
               <p className="mt-6 text-xs text-muted-foreground">{t("disclaimer.statuses")}</p>
             </CardContent>
           </Card>
+          {obligations.length > 0 && (
+            <div className="mt-4">
+              <PaymentMethodCard gam3yaId={g.id} initial={myPaymentMethod} readOnly={readOnly} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="members">
@@ -161,7 +170,7 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
                           <div className="flex flex-wrap items-center gap-1.5">
                             {row.holders.map((h, i) => (
                               <span key={i}>
-                                {h.is_me ? <strong>{t("common.you")}</strong> : h.display_name}
+                                {h.is_me ? <strong>{t("common.you")}</strong> : who(h)}
                                 {h.portion_bp === 5000 ? <span className="text-xs text-muted-foreground"> (½)</span> : null}
                                 {i < row.holders.length - 1 ? " + " : ""}
                               </span>
@@ -247,7 +256,22 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
         )}
 
         {data.manage && data.manageData && (
-          <TabsContent value="manage">
+          <TabsContent value="manage" className="flex flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("payMethod.membersTitle")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="flex flex-col divide-y">
+                  {data.manageData.members.map((m) => (
+                    <li key={m.memberNo} className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm">
+                      <span className="font-medium">{m.name ?? t("gam3ya.memberN", { n: m.memberNo })}</span>
+                      <span className={m.paymentMethod ? undefined : "text-muted-foreground"}>{m.paymentMethod ?? t("payMethod.notSet")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
             <ManagePanel
               gam3yaId={g.id}
               readOnly={readOnly}
@@ -262,7 +286,7 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
                 amount: r.o.amount,
                 record: r.o.recordStatus as "recorded_paid" | null,
                 recordedPaymentDate: r.o.recordedPaymentDate,
-                memberName: r.name,
+                memberName: r.name ?? t("gam3ya.memberN", { n: r.memberNo }),
                 phone: r.phone,
               }))}
               payouts={data.manageData.payouts.map((p) => ({
@@ -272,7 +296,7 @@ export default async function Gam3yaPage({ params }: { params: Promise<{ id: str
                 scheduledDate: p.scheduledDate,
                 amount: p.expectedAmount,
                 record: p.recordStatus,
-                holders: turns.find((x) => x.cycle_number === p.cycleNumber)?.holders.map((h) => h.display_name) ?? [],
+                holders: turns.find((x) => x.cycle_number === p.cycleNumber)?.holders.map(who) ?? [],
               }))}
               pendingRequests={data.pending.map((r) => ({ id: r.id, shareA: r.shareA, shareB: r.shareB, reason: r.reason }))}
             />

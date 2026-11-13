@@ -54,6 +54,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                     <TD>
                       <div className="flex flex-wrap gap-1">
                         {r.isActive ? <Badge>{t("admin.active")}</Badge> : <Badge variant="danger">{t("admin.inactive")}</Badge>}
+                        {r.isGuest && <Badge variant="neutral">{t("wizard.guestTag")}</Badge>}
                         {r.approvalStatus !== "approved" && (
                           <Badge variant={r.approvalStatus === "pending" ? "warning" : "danger"}>{t(`approvals.${r.approvalStatus}` as "approvals.pending")}</Badge>
                         )}
@@ -62,7 +63,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                     <TD className="num text-end">{r.memberships}{r.organizes ? ` · ${r.organizes}★` : ""}</TD>
                     <TD className="text-xs">{new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { dateStyle: "medium", timeZone: "Africa/Cairo" }).format(r.createdAt)}</TD>
                     <TD className="text-end">
-                      {r.id !== user.userId && <UserRowActions userId={r.id} role={r.role as "member"} isActive={r.isActive} />}
+                      {r.id !== user.userId && <UserRowActions userId={r.id} role={r.role as "member"} isActive={r.isActive} isGuest={r.isGuest} />}
                     </TD>
                   </TR>
                 ))}

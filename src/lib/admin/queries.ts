@@ -12,7 +12,6 @@ import { usersByIds } from "@/lib/data/users";
  * platform grows far beyond that.
  */
 
-const isOpenContribution = (o: ObligationDoc) => o.recordStatus === null || o.recordStatus === "reported_paid";
 
 async function activeGam3yas() {
   const snap = await refs.gam3yas().where("status", "in", ["active", "needs_closure"]).get();
@@ -32,8 +31,6 @@ export async function getAdminOverview(actor: Actor, today: string) {
   const until = addDays(today, 30);
   const pays = await db().collectionGroup("payouts").where("isCurrent", "==", true).where("scheduledDate", ">=", today).where("scheduledDate", "<=", until).get();
   const upcoming = pays.docs.map((d) => d.data() as PayoutDoc).filter((p) => p.recordStatus !== "confirmed_completed");
-  const overdue = await db().collectionGroup("obligations").where("dueDate", "<", today).get();
-  const overdueCount = overdue.docs.map((d) => d.data() as ObligationDoc).filter((o) => isOpenContribution(o) && addDays(o.dueDate, o.graceDays) < today).length;
   return {
     total_users,
     active_users,
@@ -42,7 +39,6 @@ export async function getAdminOverview(actor: Actor, today: string) {
     needs_closure,
     upcoming_payouts: upcoming.length,
     upcoming_payouts_amount: upcoming.reduce((a, p) => a + p.expectedAmount, 0),
-    overdue_contributions: overdueCount,
   };
 }
 
@@ -57,9 +53,8 @@ export async function getNeedsAction(actor: Actor, today: string) {
       id: g.id,
       name: g.name,
       status: g.status,
-      overdue: os.filter((o) => isOpenContribution(o) && addDays(o.dueDate, g.graceDays) < today).length,
       reported: os.filter((o) => o.recordStatus === "reported_paid").length,
-      late_payouts: pays.docs.map((d) => d.data() as PayoutDoc).filter((p) => p.recordStatus !== "confirmed_completed" && addDays(p.scheduledDate, g.graceDays) < today).length,
+      late_payouts: pays.docs.map((d) => d.data() as PayoutDoc).filter((p) => p.recordStatus !== "confirmed_completed" && p.scheduledDate < today).length,
     });
   }
   return out.sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name) : a.status === "needs_closure" ? -1 : 1));
@@ -106,7 +101,7 @@ export async function listUsers(actor: Actor, q: string | null, page: number, pa
     }),
   );
   return {
-    rows: rows.map((r, i) => ({ id: r.id, displayName: r.displayName, email: r.email, phone: r.phone, role: r.role, isActive: r.isActive, approvalStatus: r.approvalStatus, createdAt: new Date(r.createdAt), ...counts[i]! })),
+    rows: rows.map((r, i) => ({ id: r.id, displayName: r.displayName, email: r.email, phone: r.phone, role: r.role, isActive: r.isActive, isGuest: r.signupSource === "guest", approvalStatus: r.approvalStatus, createdAt: new Date(r.createdAt), ...counts[i]! })),
     hasMore,
   };
 }
@@ -117,7 +112,7 @@ export async function listAllUsersForPicker(actor: Actor) {
   return snap.docs
     .map((d) => {
       const u = d.data() as UserDoc;
-      return { id: d.id, displayName: u.displayName, email: u.email, role: u.role };
+      return { id: d.id, displayName: u.displayName, email: u.email, role: u.role, isGuest: u.signupSource === "guest" };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
@@ -199,13 +194,11 @@ export async function getReports(actor: Actor, today: string) {
     const row = monthly.find((m) => m.month === String(d.get("createdAt")).slice(0, 7));
     if (row) row.activity++;
   }
-  const overview = await getAdminOverview(actor, today);
   const ended = (byStatus.find((s) => s.status === "completed")?.n ?? 0) + (byStatus.find((s) => s.status === "needs_closure")?.n ?? 0);
   return {
     growth,
     byStatus,
     monthly,
-    overdue: overview.overdue_contributions,
     completionRate: ended ? Math.round(((byStatus.find((s) => s.status === "completed")?.n ?? 0) / ended) * 100) : null,
   };
 }

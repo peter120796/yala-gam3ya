@@ -4,7 +4,7 @@
  * server calls them inside a Firestore transaction before any write, and
  * Firestore rules deny all direct client access.
  */
-import { addDays, compareDates } from "@/lib/engine/dates";
+import { compareDates } from "@/lib/engine/dates";
 import { FULL_SHARE_BP } from "@/lib/engine/money";
 import type { ContributionRecordStatus, Gam3yaLifecycle, PayoutRecordStatus } from "@/lib/engine/types";
 import type { ApprovalStatus, Gam3yaDoc, ObligationDoc, PayoutDoc, Role } from "./types";
@@ -179,5 +179,40 @@ export function isWholeShare(bp: number) {
   return bp === FULL_SHARE_BP;
 }
 
-/** First overdue day for reminders: dueDate + grace + 1. */
-export const firstOverdueDay = (dueDate: string, graceDays: number) => addDays(dueDate, graceDays + 1);
+
+// ─── Member privacy ───
+
+/** Only the platform admin sees real names inside a Gam3ya; everyone else sees "Member 1, 2, 3…". */
+export const canSeeMemberNames = (a: Actor | null) => isSuperAdmin(a);
+
+/**
+ * Stable per-Gam3ya member numbers: members are numbered 1, 2, 3… in the order
+ * of the first share they hold (ties by id), so the number never depends on
+ * who is looking.
+ */
+export function memberNumbers(holdings: Pick<Gam3yaDoc["holdings"][number], "shareNumber" | "userId">[]): Map<string, number> {
+  const first = new Map<string, number>();
+  for (const h of holdings) first.set(h.userId, Math.min(first.get(h.userId) ?? Infinity, h.shareNumber));
+  const ordered = [...first.entries()].sort((x, y) => x[1] - y[1] || (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0));
+  return new Map(ordered.map(([uid], i) => [uid, i + 1]));
+}
+
+// ─── "How I'll pay" (طريقة الدفع) ───
+
+export const PAYMENT_METHOD_MAX = 200;
+
+/**
+ * Members describe HOW they will pay ("cash to the organizer on the 1st",
+ * "InstaPay transfer") — never the details. Links, emails, and long numbers
+ * (phone, wallet, card, account or IBAN numbers) are refused.
+ */
+export function checkPaymentMethodText(raw: string): string {
+  const text = raw.replace(/\s+/g, " ").trim();
+  if (text.length < 2 || text.length > PAYMENT_METHOD_MAX) throw new PolicyError("invalid_operation");
+  const western = text.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  const link = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|eg|io|me|app|link|ly|co)\b)/i.test(western);
+  const email = /\S+@\S+/.test(western); // emails and InstaPay addresses (name@instapay)
+  const longNumber = /\d(?:[\s\-.]*\d){5,}/.test(western); // 6+ digits, even with spaces or dashes
+  if (link || email || longNumber) throw new PolicyError("payment_method_details_not_allowed");
+  return text;
+}

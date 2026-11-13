@@ -24,8 +24,6 @@ export default async function NewGam3yaPage() {
           frequency: "monthly",
           startDate: todayIn(),
           dueDay: 1,
-          payoutOffsetDays: 0,
-          graceDays: 3,
           allowSelfReport: false,
           shares: Array.from({ length: shares }, () => ({ a: "", split: false, b: "" })),
           order: Array.from({ length: shares }, (_, i) => i + 1),

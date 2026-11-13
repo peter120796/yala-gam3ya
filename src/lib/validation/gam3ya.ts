@@ -23,7 +23,7 @@ export const draftFinancialsSchema = z
     startDate: civilDateSchema,
     dueDay: z.number().int().min(1).max(31).nullable(),
     payoutOffsetDays: z.number().int().min(0).max(27).default(0),
-    graceDays: z.number().int().min(0).max(LIMITS.maxGraceDays).default(3),
+    graceDays: z.number().int().min(0).max(LIMITS.maxGraceDays).default(0),
     allowSelfReport: z.boolean().default(false),
   })
   .refine((v) => (v.frequency === "monthly" ? v.dueDay !== null : v.dueDay === null), {

@@ -20,28 +20,28 @@ import { generateSchedule, sequentialTurns } from "./schedule";
 import { simulateJoin, SimulationError } from "./simulator";
 import type { Gam3yaConfig, ShareHolding } from "./types";
 
-describe("contribution status (scenario 10: delayed contribution)", () => {
-  it("upcoming → due → overdue by dates", () => {
-    expect(deriveContributionStatus("2026-03-05", null, "2026-03-04", 3)).toBe("upcoming");
-    expect(deriveContributionStatus("2026-03-05", null, "2026-03-05", 3)).toBe("due");
-    expect(deriveContributionStatus("2026-03-05", null, "2026-03-08", 3)).toBe("due");
-    expect(deriveContributionStatus("2026-03-05", null, "2026-03-09", 3)).toBe("overdue");
+describe("contribution status (scenario 10: late contribution)", () => {
+  it("upcoming → due by dates, and never labelled late", () => {
+    expect(deriveContributionStatus("2026-03-05", null, "2026-03-04")).toBe("upcoming");
+    expect(deriveContributionStatus("2026-03-05", null, "2026-03-05")).toBe("due");
+    expect(deriveContributionStatus("2026-03-05", null, "2026-03-08")).toBe("due");
+    expect(deriveContributionStatus("2026-03-05", null, "2026-06-30")).toBe("due");
   });
   it("recorded statuses win over dates", () => {
-    expect(deriveContributionStatus("2026-03-05", "recorded_paid", "2026-05-01", 3)).toBe("recorded_paid");
-    expect(deriveContributionStatus("2026-03-05", "waived", "2026-05-01", 3)).toBe("waived");
-    expect(deriveContributionStatus("2026-03-05", "reported_paid", "2026-05-01", 3)).toBe("reported_paid");
+    expect(deriveContributionStatus("2026-03-05", "recorded_paid", "2026-05-01")).toBe("recorded_paid");
+    expect(deriveContributionStatus("2026-03-05", "waived", "2026-05-01")).toBe("waived");
+    expect(deriveContributionStatus("2026-03-05", "reported_paid", "2026-05-01")).toBe("reported_paid");
   });
 });
 
 describe("payout status (scenario 11: delayed payout)", () => {
-  it("scheduled → due → delayed without changing the scheduled date", () => {
-    expect(derivePayoutStatus("2026-03-05", null, "2026-03-01", 2)).toBe("scheduled");
-    expect(derivePayoutStatus("2026-03-05", null, "2026-03-07", 2)).toBe("due");
-    expect(derivePayoutStatus("2026-03-05", null, "2026-03-08", 2)).toBe("delayed");
-    expect(derivePayoutStatus("2026-03-05", "delayed", "2026-03-01", 2)).toBe("delayed");
-    expect(derivePayoutStatus("2026-03-05", "reported_completed", "2026-03-20", 2)).toBe("reported_completed");
-    expect(derivePayoutStatus("2026-03-05", "confirmed_completed", "2026-03-20", 2)).toBe("confirmed_completed");
+  it("scheduled → due; delayed only when an organizer marks it", () => {
+    expect(derivePayoutStatus("2026-03-05", null, "2026-03-01")).toBe("scheduled");
+    expect(derivePayoutStatus("2026-03-05", null, "2026-03-07")).toBe("due");
+    expect(derivePayoutStatus("2026-03-05", null, "2026-04-30")).toBe("due");
+    expect(derivePayoutStatus("2026-03-05", "delayed", "2026-03-01")).toBe("delayed");
+    expect(derivePayoutStatus("2026-03-05", "reported_completed", "2026-03-20")).toBe("reported_completed");
+    expect(derivePayoutStatus("2026-03-05", "confirmed_completed", "2026-03-20")).toBe("confirmed_completed");
   });
 });
 
@@ -115,19 +115,19 @@ describe("member across multiple Gam3yas (scenarios 3–7)", () => {
   const payouts = [...a.payouts, ...b.payouts, ...c.payouts];
 
   it("monthly contribution totals combine all Gam3yas", () => {
-    expect(summarizeMonth("2026-01", obligations, payouts, "2026-01-01").scheduledContributions).toBe(100_000 + 25_000);
-    expect(summarizeMonth("2026-03", obligations, payouts, "2026-03-01").scheduledContributions).toBe(100_000 + 500_000 + 25_000);
-    expect(summarizeMonth("2026-05", obligations, payouts, "2026-05-01").scheduledContributions).toBe(500_000);
+    expect(summarizeMonth("2026-01", obligations, payouts).scheduledContributions).toBe(100_000 + 25_000);
+    expect(summarizeMonth("2026-03", obligations, payouts).scheduledContributions).toBe(100_000 + 500_000 + 25_000);
+    expect(summarizeMonth("2026-05", obligations, payouts).scheduledContributions).toBe(500_000);
   });
 
   it("payout amounts per month differ across Gam3yas", () => {
-    expect(summarizeMonth("2026-02", obligations, payouts, "2026-02-01").expectedPayouts).toBe(400_000); // A share 2
-    expect(summarizeMonth("2026-03", obligations, payouts, "2026-03-01").expectedPayouts).toBe(1_500_000 + 100_000); // B share 1 + C half of 200k
-    expect(summarizeMonth("2026-07", obligations, payouts, "2026-07-01").expectedPayouts).toBe(1_500_000); // B share 5
+    expect(summarizeMonth("2026-02", obligations, payouts).expectedPayouts).toBe(400_000); // A share 2
+    expect(summarizeMonth("2026-03", obligations, payouts).expectedPayouts).toBe(1_500_000 + 100_000); // B share 1 + C half of 200k
+    expect(summarizeMonth("2026-07", obligations, payouts).expectedPayouts).toBe(1_500_000); // B share 5
   });
 
   it("does not net contributions against payouts (planning estimate is separate)", () => {
-    const m = summarizeMonth("2026-03", obligations, payouts, "2026-03-01");
+    const m = summarizeMonth("2026-03", obligations, payouts);
     expect(m.scheduledContributions).toBe(625_000);
     expect(m.expectedPayouts).toBe(1_600_000);
     expect(planningNet(m)).toBe(975_000);
@@ -143,12 +143,11 @@ describe("member across multiple Gam3yas (scenarios 3–7)", () => {
     expect(r.amount).toBe(obligations.reduce((x, o) => x + o.amount, 0) - 200_000 - 25_000);
   });
 
-  it("month summary splits paid / outstanding / overdue", () => {
+  it("month summary splits paid / outstanding", () => {
     const recorded = obligations.map((o) => (o.gam3yaId === "A" && o.cycleNumber === 3 ? { ...o, record: "recorded_paid" as const } : o));
-    const m = summarizeMonth("2026-03", recorded, payouts, "2026-03-20");
+    const m = summarizeMonth("2026-03", recorded, payouts);
     expect(m.recordedPaidContributions).toBe(100_000);
     expect(m.outstandingContributions).toBe(525_000);
-    expect(m.overdueContributions).toBe(525_000);
   });
 
   it("finds the next payout and upcoming deadlines", () => {

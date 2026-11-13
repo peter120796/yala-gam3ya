@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { FormMessage } from "@/components/form-message";
 import { clientAuth } from "@/lib/firebase/client";
@@ -92,7 +93,7 @@ export function LoginForm({ next, initialError, notice }: { next?: string; initi
           <Label htmlFor="password">{t("password")}</Label>
           <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">{t("forgot")}</Link>
         </div>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required dir="ltr" />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required dir="ltr" />
       </div>
       <Button type="submit" size="lg" disabled={pending}>{pending ? t("signingIn") : t("signIn")}</Button>
       <p className="text-center text-sm text-muted-foreground">

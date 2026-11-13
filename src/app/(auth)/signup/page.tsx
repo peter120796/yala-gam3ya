@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { FormMessage } from "@/components/form-message";
 import { clientAuth } from "@/lib/firebase/client";
@@ -76,12 +77,12 @@ export default function SignUpPage() {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">{t("auth.password")}</Label>
-            <Input id="password" name="password" type="password" autoComplete="new-password" minLength={10} required dir="ltr" aria-describedby="pw-rules" />
+            <PasswordInput id="password" name="password" autoComplete="new-password" minLength={10} required dir="ltr" aria-describedby="pw-rules" />
             <p id="pw-rules" className="text-xs text-muted-foreground">{t("auth.passwordRules")}</p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="confirm">{t("auth.confirmPassword")}</Label>
-            <Input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={10} required dir="ltr" />
+            <PasswordInput id="confirm" name="confirm" autoComplete="new-password" minLength={10} required dir="ltr" />
           </div>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" name="terms" required className="mt-0.5 size-5 accent-[var(--primary)]" />

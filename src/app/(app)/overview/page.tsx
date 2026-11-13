@@ -38,7 +38,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
     payouts: await getMyPayouts(user.actor, filter),
   };
 
-  const s = summarizeMonth(month, data.obligations, data.payouts, today);
+  const s = summarizeMonth(month, data.obligations, data.payouts);
   const remaining = sum(data.obligations.filter((o) => !isContributionSettled(o.record)).map((o) => o.amount));
   const upcomingPayouts = sum(data.payouts.filter((p) => p.record !== "confirmed_completed" && compareDates(p.payoutDate, today) >= 0).map((p) => p.amount));
   const chart = projection(month, 12, data.obligations, data.payouts);
@@ -85,7 +85,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label={t("overview.scheduled")} value={s.scheduledContributions} />
         <Stat label={t("overview.recordedPaid")} value={s.recordedPaidContributions} tone="text-primary" />
-        <Stat label={t("overview.outstanding")} value={s.outstandingContributions} tone={s.overdueContributions > 0 ? "text-destructive" : undefined} />
+        <Stat label={t("overview.outstanding")} value={s.outstandingContributions} />
         <Stat label={t("overview.expectedPayouts")} value={s.expectedPayouts} />
         <Stat label={t("overview.remainingTotal")} value={remaining} />
         <Stat label={t("overview.upcomingPayoutsTotal")} value={upcomingPayouts} />

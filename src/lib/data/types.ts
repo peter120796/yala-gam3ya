@@ -41,7 +41,8 @@ export interface UserDoc {
   approvalStatus: ApprovalStatus;
   approvedAt: string | null;
   approvedBy: string | null;
-  signupSource: "self" | "invite" | "seed";
+  /** "guest" = a name the admin added for someone without an account (cannot sign in). */
+  signupSource: "self" | "invite" | "seed" | "guest";
   locale: "ar" | "en";
   theme: "light" | "dark" | "system";
   privacyMode: boolean;
@@ -148,6 +149,12 @@ export interface RecordDoc {
   reason: string | null;
   recordedBy: string;
   createdAt: string;
+}
+
+/** gam3yas/{gid}/paymentMethods/{uid} — how a member says they'll pay (text only, no account details). */
+export interface PaymentMethodDoc {
+  text: string;
+  updatedAt: string;
 }
 
 export interface ChangeRequestDoc {

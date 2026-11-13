@@ -1,9 +1,9 @@
 import "server-only";
 import { db } from "@/lib/firebase/admin";
 import type { MemberObligation, MemberPayout } from "@/lib/engine/summary";
-import { canManage, canView, isUsable, PolicyError, type Actor } from "./policy";
+import { canManage, canSeeMemberNames, canView, isMemberOf, isUsable, memberNumbers, PolicyError, type Actor } from "./policy";
 import { refs } from "./store";
-import type { ChangeRequestDoc, Gam3yaDoc, NotificationDoc, ObligationDoc, PayoutDoc, RecordDoc } from "./types";
+import type { ChangeRequestDoc, Gam3yaDoc, NotificationDoc, ObligationDoc, PayoutDoc, PaymentMethodDoc, RecordDoc } from "./types";
 import { usersByIds } from "./users";
 
 /**
@@ -124,13 +124,23 @@ export interface TurnRow {
   scheduled_date: string;
   expected_amount: number;
   is_completed: boolean;
-  holders: { display_name: string; portion_bp: number; is_me: boolean }[];
+  /** display_name is null unless the viewer is the admin — others see "Member {member_no}". */
+  holders: { display_name: string | null; member_no: number; portion_bp: number; is_me: boolean }[];
 }
 
-/** Payout order with display names only — no contact info, no others' payment status. */
+/**
+ * Payout order. Members never see each other's names (only "Member 1, 2, 3…"
+ * and "You"); only the admin sees real names. No contact info, no others'
+ * payment status.
+ */
 export async function getTurns(actor: Actor, g: Gam3yaView): Promise<TurnRow[]> {
   if (!canView(actor, g)) throw new PolicyError("not_authorized");
-  const [snap, people] = await Promise.all([refs.payouts(g.id).where("isCurrent", "==", true).get(), usersByIds(g.holdings.map((h) => h.userId))]);
+  const showNames = canSeeMemberNames(actor);
+  const numbers = memberNumbers(g.holdings);
+  const [snap, people] = await Promise.all([
+    refs.payouts(g.id).where("isCurrent", "==", true).get(),
+    showNames ? usersByIds(g.holdings.map((h) => h.userId)) : Promise.resolve(new Map<string, { displayName: string }>()),
+  ]);
   return snap.docs
     .map((d) => d.data() as PayoutDoc)
     .sort((a, b) => a.cycleNumber - b.cycleNumber)
@@ -143,7 +153,12 @@ export async function getTurns(actor: Actor, g: Gam3yaView): Promise<TurnRow[]> 
       holders: p.recipients
         .slice()
         .sort((a, b) => b.portionBp - a.portionBp)
-        .map((r) => ({ display_name: people.get(r.userId)?.displayName ?? "—", portion_bp: r.portionBp, is_me: r.userId === actor.uid })),
+        .map((r) => ({
+          display_name: showNames ? (people.get(r.userId)?.displayName ?? "—") : null,
+          member_no: numbers.get(r.userId) ?? 0,
+          portion_bp: r.portionBp,
+          is_me: r.userId === actor.uid,
+        })),
     }));
 }
 
@@ -152,25 +167,52 @@ export async function getOrganizerNames(g: Gam3yaView) {
   return g.organizerIds.map((id) => people.get(id)?.displayName ?? "—");
 }
 
-/** Organizer/admin view: every member's rows plus contact details. */
+/**
+ * Organizer/admin view: every member's rows and how each member said they'll
+ * pay. Names and phone numbers are for the admin only — an organizer sees
+ * "Member 1, 2, 3…" like everyone else.
+ */
 export async function getManageData(actor: Actor, gid: string) {
   const snap = await refs.gam3ya(gid).get();
   if (!snap.exists) return null;
   const g = { id: gid, ...(snap.data() as Gam3yaDoc) };
   if (!canManage(actor, g)) return null;
-  const [obs, pays, reqs, people] = await Promise.all([
+  const showNames = canSeeMemberNames(actor);
+  const numbers = memberNumbers(g.holdings);
+  const [obs, pays, reqs, people, methods] = await Promise.all([
     refs.obligations(gid).get(),
     refs.payouts(gid).where("isCurrent", "==", true).get(),
     refs.changeRequests(gid).where("status", "==", "pending").get(),
-    usersByIds(g.memberIds),
+    showNames ? usersByIds(g.memberIds) : Promise.resolve(new Map<string, { displayName: string; phone: string | null }>()),
+    refs.paymentMethods(gid).get(),
   ]);
+  const methodOf = new Map(methods.docs.map((d) => [d.id, (d.data() as PaymentMethodDoc).text]));
   const obligations = obs.docs
     .map((d) => ({ id: d.id, o: d.data() as ObligationDoc }))
-    .map(({ id, o }) => ({ id, o, name: people.get(o.userId)?.displayName ?? "—", phone: people.get(o.userId)?.phone ?? null }))
-    .sort((a, b) => a.o.cycleNumber - b.o.cycleNumber || a.name.localeCompare(b.name));
+    .map(({ id, o }) => ({
+      id,
+      o,
+      memberNo: numbers.get(o.userId) ?? 0,
+      name: showNames ? (people.get(o.userId)?.displayName ?? "—") : null,
+      phone: showNames ? (people.get(o.userId)?.phone ?? null) : null,
+      paymentMethod: methodOf.get(o.userId) ?? null,
+    }))
+    .sort((a, b) => a.o.cycleNumber - b.o.cycleNumber || a.memberNo - b.memberNo);
+  const members = [...numbers.entries()].map(([uid, memberNo]) => ({
+    memberNo,
+    name: showNames ? (people.get(uid)?.displayName ?? "—") : null,
+    paymentMethod: methodOf.get(uid) ?? null,
+  }));
   const payouts = pays.docs.map((d) => ({ id: d.id, ...(d.data() as PayoutDoc) })).sort((a, b) => a.cycleNumber - b.cycleNumber);
   const pending = reqs.docs.map((d) => ({ id: d.id, ...(d.data() as ChangeRequestDoc) }));
-  return { gam3ya: g, obligations, payouts, pending };
+  return { gam3ya: g, obligations, payouts, pending, members };
+}
+
+/** The member's own "how I'll pay" note for one Gam3ya (nobody else's). */
+export async function getMyPaymentMethod(actor: Actor, g: Gam3yaView): Promise<string | null> {
+  if (!isMemberOf(actor, g)) return null;
+  const snap = await refs.paymentMethod(g.id, actor.uid).get();
+  return snap.exists ? snap.data()!.text : null;
 }
 
 export async function getNotifications(actor: Actor, limit = 50, unreadOnly = false) {

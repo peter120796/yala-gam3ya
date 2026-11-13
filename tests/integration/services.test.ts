@@ -10,8 +10,8 @@ import { PolicyError, type Actor } from "@/lib/data/policy";
 import { DomainError } from "@/lib/gam3ya/errors";
 import { refs, nowIso } from "@/lib/data/store";
 import { DEFAULT_NOTIFICATION_PREFS, type UserDoc, type Gam3yaDoc, type NotificationDoc } from "@/lib/data/types";
-import { activateDraft, evaluateLifecycle, proposeSwap, recordContribution, recordPayout, restoreGam3ya, reviewChangeRequest, saveDraft, type DraftInput } from "@/lib/data/gam3yas";
-import { getManageData, getMyObligations, getMyPayouts, getTurns, getGam3yaForViewer, getNotifications } from "@/lib/data/reads";
+import { activateDraft, evaluateLifecycle, proposeSwap, recordContribution, recordPayout, restoreGam3ya, reviewChangeRequest, saveDraft, setPaymentMethod, type DraftInput } from "@/lib/data/gam3yas";
+import { getManageData, getMyObligations, getMyPaymentMethod, getMyPayouts, getTurns, getGam3yaForViewer, getNotifications } from "@/lib/data/reads";
 import { ensureProfile, inviteUser, setApproval, setUserActive } from "@/lib/data/users";
 import { runDailyJob } from "@/lib/notifications/job";
 import { fakeAuth, resetBackend } from "./backend";
@@ -96,14 +96,25 @@ describe("member isolation (IDOR) & organizer scoping", () => {
     expect((await getMyPayouts(m1)).map((p) => p.shareNumber).sort()).toEqual([1, 4]);
     expect(await getManageData(m1, g1)).toBeNull();
   });
-  it("payout order shows display names only", async () => {
+  it("members see each other only as numbers; the admin sees names", async () => {
     const view = await getGam3yaForViewer(m3, g1);
     const turns = await getTurns(m3, view!);
     expect(turns[2]!.holders).toEqual([
-      { display_name: "User m3", portion_bp: 5000, is_me: true },
-      { display_name: "User m4", portion_bp: 5000, is_me: false },
+      { display_name: null, member_no: 3, portion_bp: 5000, is_me: true },
+      { display_name: null, member_no: 4, portion_bp: 5000, is_me: false },
     ]);
+    expect(JSON.stringify(turns)).not.toContain("User ");
     expect(JSON.stringify(turns)).not.toContain("@yala.test");
+    const adminTurns = await getTurns(admin, view!);
+    expect(adminTurns[2]!.holders.map((h) => h.display_name)).toEqual(["User m3", "User m4"]);
+  });
+  it("organizers manage by number — no names or phone numbers", async () => {
+    const data = (await getManageData(org1, g1))!;
+    expect(data.obligations.every((r) => r.name === null && r.phone === null)).toBe(true);
+    expect(data.members.map((m) => [m.memberNo, m.name])).toEqual([[1, null], [2, null], [3, null], [4, null]]);
+    const asAdmin = (await getManageData(admin, g1))!;
+    expect(asAdmin.members.map((m) => m.name)).toEqual(["User m1", "User m2", "User m3", "User m4"]);
+    expect(asAdmin.obligations.some((r) => r.phone !== null)).toBe(true);
   });
   it("outsiders and other organizers can't see or record", async () => {
     expect(await getGam3yaForViewer(m5, g1)).toBeNull();
@@ -229,5 +240,28 @@ describe("daily job", () => {
     const pending = await refs.notifications().where("emailStatus", "in", ["pending", "sending"]).get();
     expect(pending.size).toBe(0);
     expect(first.email.provider).toBe("console");
+  });
+});
+
+describe("how I'll pay (طريقة الدفع)", () => {
+  it("a member writes their own; admin and organizer read it; other members can't", async () => {
+    expect(await setPaymentMethod(m2, g1, "  كاش للمنظم أول الشهر ")).toBe("كاش للمنظم أول الشهر");
+    const view = (await getGam3yaForViewer(m2, g1))!;
+    expect(await getMyPaymentMethod(m2, view)).toBe("كاش للمنظم أول الشهر");
+    expect(await getMyPaymentMethod(m1, (await getGam3yaForViewer(m1, g1))!)).toBeNull();
+    const org = (await getManageData(org1, g1))!;
+    expect(org.members.find((m) => m.memberNo === 2)?.paymentMethod).toBe("كاش للمنظم أول الشهر");
+    expect(org.obligations.filter((r) => r.memberNo === 2).every((r) => r.paymentMethod === "كاش للمنظم أول الشهر")).toBe(true);
+    expect(await getManageData(m1, g1)).toBeNull();
+  });
+  it("refuses account details and non-members", async () => {
+    expect(await code(setPaymentMethod(m2, g1, "InstaPay peter@instapay"))).toBe("payment_method_details_not_allowed");
+    expect(await code(setPaymentMethod(m2, g1, "Vodafone Cash 01012345678"))).toBe("payment_method_details_not_allowed");
+    expect(await code(setPaymentMethod(m5, g1, "cash"))).toBe("not_authorized");
+    expect(await code(setPaymentMethod(org2, g1, "cash"))).toBe("not_authorized");
+  });
+  it("can be cleared", async () => {
+    expect(await setPaymentMethod(m2, g1, "")).toBeNull();
+    expect(await getMyPaymentMethod(m2, (await getGam3yaForViewer(m2, g1))!)).toBeNull();
   });
 });

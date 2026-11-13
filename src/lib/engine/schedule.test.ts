@@ -74,7 +74,7 @@ describe("scenario 2: one member with multiple shares", () => {
   });
 });
 
-describe("split shares (نص سهم)", () => {
+describe("split shares (نص حصة)", () => {
   const holdings: ShareHolding[] = [
     ...onePerMember(12).filter((h) => h.shareNumber !== 4),
     { shareNumber: 4, memberId: "ahmed", portionBp: 5_000 },

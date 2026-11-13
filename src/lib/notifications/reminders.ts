@@ -34,7 +34,6 @@ export function computeReminders(i: ReminderInput): Reminder[] {
     let kind: string | null = null;
     if (o.dueDate === addDays(today, 3)) kind = "contribution_due_3d";
     else if (o.dueDate === addDays(today, 1)) kind = "contribution_due_1d";
-    else if (addDays(o.dueDate, o.graceDays) === addDays(today, -1)) kind = "contribution_overdue";
     if (kind) out.push({ userId: o.userId, kind, gam3yaId: gam3ya.id, params: { gam3ya: gam3ya.name, date: o.dueDate }, dedupeKey: `${kind}:${gam3ya.id}:${o.id}` });
   }
 

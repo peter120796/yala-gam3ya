@@ -12,7 +12,7 @@ export const LIMITS = {
   maxPayoutOffset: { monthly: 27, biweekly: 13, weekly: 6 },
 } as const;
 
-/** MVP: whole shares and halves (نص سهم). */
+/** MVP: whole shares and halves (نص حصة). */
 export const DEFAULT_ALLOWED_PORTIONS: readonly number[] = [FULL_SHARE_BP, HALF_SHARE_BP];
 
 export type ValidationIssue =

@@ -77,7 +77,7 @@ export function InviteUserDialog() {
   );
 }
 
-export function UserRowActions({ userId, role, isActive }: { userId: string; role: Role; isActive: boolean }) {
+export function UserRowActions({ userId, role, isActive, isGuest = false }: { userId: string; role: Role; isActive: boolean; isGuest?: boolean }) {
   const t = useTranslations();
   const errorText = useErrorText();
   const [pending, start] = useTransition();
@@ -109,13 +109,17 @@ export function UserRowActions({ userId, role, isActive }: { userId: string; rol
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{t("admin.role")}</DropdownMenuLabel>
-          {(["member", "organizer", "super_admin"] as Role[]).map((r) => (
-            <DropdownMenuItem key={r} disabled={r === role} onSelect={() => changeRole(r)}>
-              {t(`admin.roles.${r}`)}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
+          {!isGuest && (
+            <>
+              <DropdownMenuLabel>{t("admin.role")}</DropdownMenuLabel>
+              {(["member", "organizer", "super_admin"] as Role[]).map((r) => (
+                <DropdownMenuItem key={r} disabled={r === role} onSelect={() => changeRole(r)}>
+                  {t(`admin.roles.${r}`)}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onSelect={() => setConfirmOpen(true)} className={isActive ? "text-destructive" : undefined}>
             {isActive ? t("admin.deactivate") : t("admin.reactivate")}
           </DropdownMenuItem>

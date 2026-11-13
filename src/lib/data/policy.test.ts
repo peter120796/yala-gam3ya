@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   applySwap,
   assertParticipantsApproved,
+  canSeeMemberNames,
   canSeeObligation,
+  checkPaymentMethodText,
   canSeePayout,
   canView,
   decideContributionRecord,
   decidePayoutRecord,
   decideProposeSwap,
   isSuperAdmin,
+  memberNumbers,
   PolicyError,
   type Actor,
 } from "./policy";
@@ -174,10 +177,10 @@ describe("reminders (scenario 18 + preferences)", () => {
     prefs: new Map(),
     activeUsers: new Set(["m1", "m2"]),
   };
-  it("emits the right kinds with deterministic keys and only the Gam3ya name", () => {
+  it("emits the right kinds with deterministic keys and only the Gam3ya name (never an overdue nag)", () => {
     const r = computeReminders(base);
     expect(r.map((x) => `${x.kind}:${x.userId}`).sort()).toEqual(
-      ["contribution_due_1d:m2", "contribution_due_3d:m1", "contribution_overdue:m1", "payout_next_month:m2", "payout_this_week:m1", "payout_this_week:m2"].sort(),
+      ["contribution_due_1d:m2", "contribution_due_3d:m1", "payout_next_month:m2", "payout_this_week:m1", "payout_this_week:m2"].sort(),
     );
     expect(r.every((x) => Object.keys(x.params).sort().join() === "date,gam3ya")).toBe(true);
     expect(computeReminders(base).map((x) => x.dedupeKey)).toEqual(r.map((x) => x.dedupeKey));
@@ -187,5 +190,42 @@ describe("reminders (scenario 18 + preferences)", () => {
     expect(computeReminders({ ...base, prefs }).some((x) => x.userId === "m1" && x.kind.startsWith("contribution"))).toBe(false);
     expect(computeReminders({ ...base, activeUsers: new Set(["m1"]) }).some((x) => x.userId === "m2")).toBe(false);
     expect(computeReminders({ ...base, gam3ya: { ...base.gam3ya, status: "completed" } })).toEqual([]);
+  });
+});
+
+describe("member privacy numbers", () => {
+  it("numbers members by their first share, the same for every viewer", () => {
+    const n = memberNumbers([
+      { shareNumber: 3, userId: "c" },
+      { shareNumber: 1, userId: "b" },
+      { shareNumber: 2, userId: "a" },
+      { shareNumber: 2, userId: "z" },
+      { shareNumber: 4, userId: "b" },
+    ]);
+    expect([...n.entries()]).toEqual([["b", 1], ["a", 2], ["z", 3], ["c", 4]]);
+  });
+  it("only an MFA super admin sees names", () => {
+    expect(canSeeMemberNames({ uid: "x", role: "super_admin", isActive: true, approvalStatus: "approved", mfa: true })).toBe(true);
+    expect(canSeeMemberNames({ uid: "x", role: "organizer", isActive: true, approvalStatus: "approved", mfa: false })).toBe(false);
+    expect(canSeeMemberNames({ uid: "x", role: "member", isActive: true, approvalStatus: "approved", mfa: false })).toBe(false);
+  });
+});
+
+describe("payment method text", () => {
+  const ok = (s: string) => () => checkPaymentMethodText(s);
+  it("accepts plain descriptions (Arabic or English)", () => {
+    expect(checkPaymentMethodText("  كاش  للمنظم أول الشهر ")).toBe("كاش للمنظم أول الشهر");
+    expect(checkPaymentMethodText("InstaPay transfer on the 1st")).toBe("InstaPay transfer on the 1st");
+    expect(checkPaymentMethodText("فودافون كاش يوم 5")).toBe("فودافون كاش يوم 5");
+    expect(checkPaymentMethodText("2 installments of 1500")).toBe("2 installments of 1500");
+  });
+  it("refuses links, emails and account/wallet/phone numbers", () => {
+    for (const bad of ["https://ipn.eg/S/peter", "www.example.com", "pay me at peter.eg", "peter@instapay", "a@b.com", "01557070384", "٠١٥٥٧٠٧٠٣٨٤", "0155 707 0384", "EG380019000500000000263180002", "card 4111-1111-1111-1111"]) {
+      expect(ok(bad), bad).toThrowError(PolicyError);
+    }
+  });
+  it("refuses empty or very long text", () => {
+    expect(ok(" ")).toThrowError(PolicyError);
+    expect(ok("x".repeat(201))).toThrowError(PolicyError);
   });
 });

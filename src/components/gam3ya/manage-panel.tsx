@@ -132,7 +132,7 @@ export function ManagePanel(props: {
           </p>
           <ul className="divide-y rounded-xl border">
             {rows.map((o) => {
-              const status = deriveContributionStatus(o.dueDate, o.record, props.today, props.graceDays);
+              const status = deriveContributionStatus(o.dueDate, o.record, props.today);
               return (
                 <li key={o.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
@@ -186,7 +186,7 @@ export function ManagePanel(props: {
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-2">
             <Money value={payout.amount} className="text-lg font-bold" />
-            <PayoutBadge status={derivePayoutStatus(payout.scheduledDate, payout.record, props.today, props.graceDays)} />
+            <PayoutBadge status={derivePayoutStatus(payout.scheduledDate, payout.record, props.today)} />
             {!props.readOnly && (
               <div className="ms-auto flex flex-wrap gap-2">
                 {payout.record !== "reported_completed" && payout.record !== "confirmed_completed" && (

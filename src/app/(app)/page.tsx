@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { AlertTriangle, ArrowUpRight, CalendarClock, HandCoins, Layers, Lightbulb, Wallet } from "lucide-react";
+import { ArrowUpRight, CalendarClock, HandCoins, Layers, Lightbulb, Wallet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { KpiCard } from "@/components/gam3ya/kpi-card";
@@ -12,8 +11,7 @@ import { Money } from "@/components/money";
 import { requireUser } from "@/lib/auth/session";
 import { getMyGam3yas, getMyObligations, getMyPayouts, getNotifications, getRecentActivity } from "@/lib/data/reads";
 import { addMonthsToKey, diffDays, monthKey, monthRange, todayIn } from "@/lib/engine/dates";
-import { sum } from "@/lib/engine/money";
-import { nextPayout, projection, summarizeMonth, upcomingContributions, contributionStatusOf } from "@/lib/engine/summary";
+import { nextPayout, projection, summarizeMonth, upcomingContributions } from "@/lib/engine/summary";
 import { formatCivilDate, formatInstant, formatMonthKey, relativeWhen } from "@/lib/format";
 import { renderNotification } from "@/lib/notifications/render";
 
@@ -33,17 +31,16 @@ export default async function DashboardPage() {
   const data = { gam3yas, obligations, payouts, notifications, activity };
   const nameOf = new Map(gam3yas.map((g) => [g.gam3ya.id, g.gam3ya.name]));
 
-  const summary = summarizeMonth(month, data.obligations, data.payouts, today);
+  const summary = summarizeMonth(month, data.obligations, data.payouts);
   const memberGam3yas = data.gam3yas.filter((g) => g.isMember);
   const active = memberGam3yas.filter((g) => g.gam3ya.status === "active" || g.gam3ya.status === "needs_closure");
   const next = nextPayout(data.payouts, today);
   const deadlines = upcomingContributions(data.obligations, today, 5);
   const chart = projection(month, 12, data.obligations, data.payouts);
-  const overdue = data.obligations.filter((o) => contributionStatusOf(o, today) === "overdue");
 
   // Insights — plain arithmetic over real records.
   const nextMonth = addMonthsToKey(month, 1);
-  const nextMonthTotal = summarizeMonth(nextMonth, data.obligations, data.payouts, today).scheduledContributions;
+  const nextMonthTotal = summarizeMonth(nextMonth, data.obligations, data.payouts).scheduledContributions;
   const qStartMonth = Math.floor((Number(month.slice(5, 7)) - 1) / 3) * 3 + 1;
   const qEnd = monthRange(`${month.slice(0, 4)}-${String(qStartMonth + 2).padStart(2, "0")}`).end;
   const endingThisQuarter = active.filter((g) => g.gam3ya.endDate && g.gam3ya.endDate >= today && g.gam3ya.endDate <= qEnd).length;
@@ -67,18 +64,6 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-muted-foreground">{t("dashboard.subtitle")}</p>
       </section>
-
-      {overdue.length > 0 && (
-        <Alert variant="danger">
-          <AlertTriangle />
-          <span>
-            {t.rich("dashboard.overdueBanner", {
-              count: overdue.length,
-              amount: () => <Money value={sum(overdue.map((o) => o.amount))} className="font-semibold" />,
-            })}
-          </span>
-        </Alert>
-      )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("dashboard.subtitle")}>
         <KpiCard

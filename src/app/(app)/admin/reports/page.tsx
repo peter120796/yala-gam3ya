@@ -21,10 +21,6 @@ export default async function ReportsPage() {
           </Card>
         ))}
         <Card className="p-4">
-          <p className="text-xs text-muted-foreground">{t("admin.overdueContributions")}</p>
-          <p className="num mt-1 text-2xl font-bold">{formatNumber(r.overdue, locale)}</p>
-        </Card>
-        <Card className="p-4">
           <p className="text-xs text-muted-foreground">%</p>
           <p className="num mt-1 text-2xl font-bold">{r.completionRate === null ? "—" : `${formatNumber(r.completionRate, locale)}%`}</p>
           <p className="text-xs text-muted-foreground">{t("status.gam3ya.completed")} / ({t("status.gam3ya.completed")} + {t("status.gam3ya.needs_closure")})</p>

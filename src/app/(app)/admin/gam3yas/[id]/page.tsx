@@ -40,8 +40,6 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
           frequency: g.frequency as "monthly",
           startDate: g.startDate,
           dueDay: g.dueDay ?? 1,
-          payoutOffsetDays: g.payoutOffsetDays,
-          graceDays: g.graceDays,
           allowSelfReport: g.allowSelfReport,
           shares,
           order: fullOrder,

@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Shuffle, ListOrdered, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, Shuffle, ListOrdered, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -13,7 +13,7 @@ import { NativeSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Money } from "@/components/money";
-import { activateDraftAction, deleteDraftAction, saveDraftAction } from "@/app/actions/admin";
+import { activateDraftAction, createGuestAction, deleteDraftAction, saveDraftAction } from "@/app/actions/admin";
 import { formatMoney, parseMoneyInput, toDecimalString, multiply } from "@/lib/engine/money";
 import { generateSchedule, sequentialTurns } from "@/lib/engine/schedule";
 import { validateAll, type ValidationIssue } from "@/lib/engine/validate";
@@ -27,6 +27,8 @@ export interface WizardUser {
   displayName: string;
   email: string | null;
   role: string;
+  /** Added by name only — no account. */
+  isGuest?: boolean;
 }
 
 interface ShareSlot {
@@ -45,8 +47,6 @@ export interface WizardInitial {
   frequency: Frequency;
   startDate: string;
   dueDay: number;
-  payoutOffsetDays: number;
-  graceDays: number;
   allowSelfReport: boolean;
   shares: ShareSlot[];
   /** order[i] = share number receiving cycle i+1 */
@@ -80,6 +80,49 @@ function IssueList({ issues, filter }: { issues: ValidationIssue[]; filter?: (i:
   );
 }
 
+/**
+ * Whole-number field that lets people type freely (including clearing it and
+ * typing "12") — the value is only clamped to [min, max] when it is valid or
+ * when the field loses focus.
+ */
+function IntInput({ id, value, min, max, onCommit }: { id: string; value: number; min: number; max: number; onCommit: (n: number) => void }) {
+  const [text, setText] = useState(String(value));
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    // The value changed from outside (e.g. reset) — show it.
+    setLastValue(value);
+    setText(String(value));
+  }
+  const toInt = (raw: string) => {
+    const western = raw.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+    return western === "" ? null : Number.parseInt(western, 10);
+  };
+  return (
+    <Input
+      id={id}
+      inputMode="numeric"
+      dir="ltr"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9٠-٩]/g, "").slice(0, 3);
+        setText(raw);
+        const n = toInt(raw);
+        if (n !== null && n >= min && n <= max) {
+          setLastValue(n);
+          onCommit(n);
+        }
+      }}
+      onBlur={() => {
+        const n = toInt(text);
+        const clamped = Math.max(min, Math.min(max, n ?? value));
+        setText(String(clamped));
+        setLastValue(clamped);
+        if (clamped !== value) onCommit(clamped);
+      }}
+    />
+  );
+}
+
 const STEPS = ["basics", "financials", "participants", "turns", "review", "activate"] as const;
 
 export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial: WizardInitial }) {
@@ -93,14 +136,39 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
   const [confirmed, setConfirmed] = useState(false);
   const [pending, start] = useTransition();
 
-  const organizers = users.filter((u) => u.role === "organizer" || u.role === "super_admin");
-  const nameOf = (uid: string) => users.find((u) => u.id === uid)?.displayName ?? t("wizard.unassigned");
+  // Everyone who can hold a share — including people added by name only in this session.
+  const [people, setPeople] = useState(users);
+  const [guestName, setGuestName] = useState("");
+  const organizers = people.filter((u) => !u.isGuest && (u.role === "organizer" || u.role === "super_admin"));
+  const nameOf = (uid: string) => people.find((u) => u.id === uid)?.displayName ?? t("wizard.unassigned");
+  const label = (u: WizardUser) => (u.isGuest ? `${u.displayName} · ${t("wizard.guestTag")}` : u.displayName);
 
   const resizeShares = (n: number) => {
     const shares = Array.from({ length: n }, (_, i) => s.shares[i] ?? { a: "", split: false, b: "" });
     const kept = s.order.filter((x) => x <= n);
     const missing = Array.from({ length: n }, (_, i) => i + 1).filter((x) => !kept.includes(x));
     setS({ ...s, totalShares: n, shares, order: [...kept, ...missing].slice(0, n) });
+  };
+
+  const addGuest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = guestName.trim();
+    if (name.length < 2) return;
+    start(async () => {
+      const res = await createGuestAction({ displayName: name });
+      if (!res.ok) return void toast.error(errorText(res));
+      const guest: WizardUser = { id: res.data.id, displayName: res.data.displayName, email: null, role: "member", isGuest: true };
+      setPeople((list) => [...list, guest].sort((a, b) => a.displayName.localeCompare(b.displayName)));
+      // Put them on the first empty share so it is one step.
+      const free = s.shares.findIndex((sh) => !sh.a);
+      if (free >= 0) {
+        const shares = [...s.shares];
+        shares[free] = { ...shares[free]!, a: guest.id };
+        setS({ ...s, shares });
+      }
+      setGuestName("");
+      toast.success(t("wizard.guestAdded", { name: guest.displayName }));
+    });
   };
 
   const contribution = parseMoneyInput(s.contribution);
@@ -110,8 +178,9 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
     frequency: s.frequency,
     startDate: s.startDate,
     dueDay: s.frequency === "monthly" ? s.dueDay : null,
-    payoutOffsetDays: s.payoutOffsetDays,
-    graceDays: s.graceDays,
+    // Payout on the due date; nobody is ever counted late.
+    payoutOffsetDays: 0,
+    graceDays: 0,
   };
   const holdings: ShareHolding[] = s.shares.flatMap((sh, i) => {
     const n = i + 1;
@@ -143,8 +212,8 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
       frequency: s.frequency,
       startDate: s.startDate,
       dueDay: s.frequency === "monthly" ? s.dueDay : null,
-      payoutOffsetDays: s.payoutOffsetDays,
-      graceDays: s.graceDays,
+      payoutOffsetDays: 0,
+      graceDays: 0,
       allowSelfReport: s.allowSelfReport,
     },
     holdings: holdings.map((h) => ({ shareNumber: h.shareNumber, userId: h.memberId, portionBp: h.portionBp as 5000 | 10000 })),
@@ -241,10 +310,10 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
                 <Input id="w-amt" inputMode="decimal" dir="ltr" value={s.contribution} onChange={(e) => setS({ ...s, contribution: e.target.value })} aria-invalid={contribution === null} />
               </Field>
               <Field id="w-shares" label={t("wizard.shares")}>
-                <Input id="w-shares" type="number" min={2} max={120} dir="ltr" value={s.totalShares} onChange={(e) => resizeShares(Math.max(2, Math.min(120, Number(e.target.value) || 2)))} />
+                <IntInput id="w-shares" value={s.totalShares} min={2} max={120} onCommit={resizeShares} />
               </Field>
               <Field id="w-freq" label={t("wizard.frequency")}>
-                <NativeSelect id="w-freq" value={s.frequency} onChange={(e) => setS({ ...s, frequency: e.target.value as Frequency, payoutOffsetDays: 0 })}>
+                <NativeSelect id="w-freq" value={s.frequency} onChange={(e) => setS({ ...s, frequency: e.target.value as Frequency })}>
                   <option value="monthly">{t("frequency.monthly")}</option>
                   <option value="biweekly">{t("frequency.biweekly")}</option>
                   <option value="weekly">{t("frequency.weekly")}</option>
@@ -255,15 +324,9 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
               </Field>
               {s.frequency === "monthly" && (
                 <Field id="w-due" label={t("wizard.dueDay")}>
-                  <Input id="w-due" type="number" min={1} max={31} dir="ltr" value={s.dueDay} onChange={(e) => setS({ ...s, dueDay: Number(e.target.value) || 1 })} />
+                  <IntInput id="w-due" value={s.dueDay} min={1} max={31} onCommit={(n) => setS({ ...s, dueDay: n })} />
                 </Field>
               )}
-              <Field id="w-off" label={t("wizard.payoutOffset")}>
-                <Input id="w-off" type="number" min={0} max={27} dir="ltr" value={s.payoutOffsetDays} onChange={(e) => setS({ ...s, payoutOffsetDays: Number(e.target.value) || 0 })} />
-              </Field>
-              <Field id="w-grace" label={t("wizard.graceDays")}>
-                <Input id="w-grace" type="number" min={0} max={30} dir="ltr" value={s.graceDays} onChange={(e) => setS({ ...s, graceDays: Number(e.target.value) || 0 })} />
-              </Field>
               <div className="flex items-center justify-between gap-3 rounded-xl border p-3 sm:col-span-2">
                 <Label htmlFor="w-self">{t("wizard.allowSelfReport")}</Label>
                 <Switch id="w-self" checked={s.allowSelfReport} onCheckedChange={(v) => setS({ ...s, allowSelfReport: v })} />
@@ -279,6 +342,16 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
 
           {step === 2 && (
             <>
+              <form onSubmit={addGuest} className="flex flex-col gap-2 rounded-xl border border-dashed p-3">
+                <Label htmlFor="w-guest">{t("wizard.addGuest")}</Label>
+                <div className="flex gap-2">
+                  <Input id="w-guest" value={guestName} maxLength={80} placeholder={t("wizard.guestName")} onChange={(e) => setGuestName(e.target.value)} aria-describedby="w-guest-hint" />
+                  <Button type="submit" variant="outline" disabled={pending || guestName.trim().length < 2}>
+                    <UserPlus /> {t("wizard.addGuestButton")}
+                  </Button>
+                </div>
+                <p id="w-guest-hint" className="text-xs text-muted-foreground">{t("wizard.addGuestHint")}</p>
+              </form>
               <ul className="flex flex-col gap-2">
                 {s.shares.map((sh, i) => {
                   const update = (patch: Partial<ShareSlot>) => {
@@ -291,7 +364,7 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
                       <span className="text-sm font-semibold">{t("gam3ya.shareN", { n: i + 1 })}</span>
                       <NativeSelect aria-label={`${t("wizard.assignShare")} ${i + 1}`} value={sh.a} onChange={(e) => update({ a: e.target.value })}>
                         <option value="">{t("wizard.unassigned")}</option>
-                        {users.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
+                        {people.map((u) => <option key={u.id} value={u.id}>{label(u)}</option>)}
                       </NativeSelect>
                       <label className="flex items-center gap-2 text-xs">
                         <Switch checked={sh.split} onCheckedChange={(v) => update({ split: v, b: v ? sh.b : "" })} aria-label={t("wizard.splitShare")} />
@@ -300,7 +373,7 @@ export function Gam3yaWizard({ users, initial }: { users: WizardUser[]; initial:
                       {sh.split ? (
                         <NativeSelect aria-label={t("wizard.secondHolder")} value={sh.b} onChange={(e) => update({ b: e.target.value })}>
                           <option value="">{t("wizard.secondHolder")}</option>
-                          {users.filter((u) => u.id !== sh.a).map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
+                          {people.filter((u) => u.id !== sh.a).map((u) => <option key={u.id} value={u.id}>{label(u)}</option>)}
                         </NativeSelect>
                       ) : <span className="hidden sm:block" />}
                     </li>

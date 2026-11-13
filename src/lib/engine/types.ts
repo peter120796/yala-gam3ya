@@ -81,7 +81,7 @@ export type ContributionRecordStatus = "reported_paid" | "recorded_paid" | "waiv
 export type PayoutRecordStatus = "reported_completed" | "confirmed_completed" | "delayed";
 
 /** Display statuses = stored record (if any) + date-derived state. */
-export type ContributionStatus = "upcoming" | "due" | "overdue" | ContributionRecordStatus;
+export type ContributionStatus = "upcoming" | "due" | ContributionRecordStatus;
 export type PayoutStatus = "scheduled" | "due" | "delayed" | "reported_completed" | "confirmed_completed";
 
 export type Gam3yaLifecycle = "draft" | "active" | "needs_closure" | "completed" | "cancelled";

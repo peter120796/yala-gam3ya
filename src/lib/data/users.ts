@@ -31,6 +31,29 @@ function newUserDoc(p: { email: string | null; displayName: string | null; phone
   };
 }
 
+/** A person the admin added by name only — no account, cannot sign in. */
+export const isGuest = (u: Pick<UserDoc, "signupSource"> | null | undefined) => u?.signupSource === "guest";
+
+/**
+ * Adds someone who has no account (a "guest") so they can hold shares.
+ * Guests are approved members that can never sign in, organize, or be admins;
+ * they get no reminders or emails — the organizer records their payments.
+ */
+export async function createGuest(actor: Actor | null, displayName: string): Promise<{ id: string; displayName: string }> {
+  assertSuperAdmin(actor);
+  const name = displayName.replace(/\s+/g, " ").trim();
+  if (name.length < 2 || name.length > 80) throw new PolicyError("invalid_operation");
+  const ref = refs.users().doc();
+  const doc = newUserDoc({ email: null, displayName: name, phone: null, locale: "ar" }, "guest", true);
+  doc.approvedBy = actor.uid;
+  doc.notificationPrefs = { emailEnabled: false, contributionReminders: false, payoutReminders: false, gam3yaUpdates: false };
+  await db().runTransaction(async (tx) => {
+    tx.create(ref, doc);
+    audit(tx, { actorId: actor.uid, action: "user.guest_created", entityType: "user", entityId: ref.id, gam3yaId: null, before: null, after: { displayName: name }, reason: null });
+  });
+  return { id: ref.id, displayName: name };
+}
+
 /** Creates the profile on first sign-in / sign-up (self sign-ups start PENDING). */
 export async function ensureProfile(uid: string, p: { email: string | null; displayName: string | null; phone: string | null; locale: "ar" | "en" }): Promise<UserDoc> {
   const ref = refs.user(uid);
@@ -76,6 +99,7 @@ export async function setUserRole(actor: Actor | null, target: string, role: Rol
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(refs.user(target));
     if (!snap.exists) throw new PolicyError("not_found");
+    if (isGuest(snap.data()) && role !== "member") throw new PolicyError("guest_not_allowed");
     tx.update(refs.user(target), { role, updatedAt: nowIso() });
     audit(tx, { actorId: actor.uid, action: "user.role_changed", entityType: "user", entityId: target, gam3yaId: null, before: { role: snap.data()!.role }, after: { role }, reason: null });
   });
@@ -86,12 +110,14 @@ export async function setUserActive(actor: Actor | null, target: string, active:
   assertSuperAdmin(actor);
   assertNotSelf(actor, target);
   if (reason.trim().length < 3) throw new PolicyError("reason_required");
-  await db().runTransaction(async (tx) => {
+  const guest = await db().runTransaction(async (tx) => {
     const snap = await tx.get(refs.user(target));
     if (!snap.exists) throw new PolicyError("not_found");
     tx.update(refs.user(target), { isActive: active, deactivatedAt: active ? null : nowIso(), updatedAt: nowIso() });
     audit(tx, { actorId: actor.uid, action: active ? "user.reactivated" : "user.deactivated", entityType: "user", entityId: target, gam3yaId: null, before: null, after: { isActive: active }, reason });
+    return isGuest(snap.data());
   });
+  if (guest) return; // no sign-in account to disable
   await adminAuth().updateUser(target, { disabled: !active });
   if (!active) await adminAuth().revokeRefreshTokens(target);
 }

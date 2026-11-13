@@ -22,6 +22,8 @@ import {
   assertParticipantsApproved,
   assertSuperAdmin,
   canManage,
+  checkPaymentMethodText,
+  isMemberOf,
   decideContributionRecord,
   decidePayoutRecord,
   decideProposeSwap,
@@ -33,7 +35,7 @@ import {
 } from "./policy";
 import { audit, bulk, notificationDoc, nowIso, obligationId, payoutId, readNotificationState, record, refs } from "./store";
 import type { ChangeRequestDoc, Gam3yaDoc, ObligationDoc, PayoutDoc } from "./types";
-import { usersByIds } from "./users";
+import { isGuest, usersByIds } from "./users";
 
 export const configOf = (g: Gam3yaDoc): Gam3yaConfig => ({
   totalShares: g.totalShares,
@@ -96,6 +98,8 @@ export async function saveDraft(actor: Actor | null, input: DraftInput): Promise
   const ids = [...new Set([...b.organizerIds, ...holdings.map((h) => h.userId)])];
   if (ids.some((id) => !people.has(id))) throw new PolicyError("invalid_reference");
   assertParticipantsApproved(ids.map((id) => ({ uid: id, ...people.get(id)! })));
+  // People without an account can hold shares but can't organize.
+  if (b.organizerIds.some((id) => isGuest(people.get(id)))) throw new PolicyError("guest_not_allowed");
 
   const turnOrder = Array.from({ length: f.totalShares }, (_, i) => turns.find((t) => t.cycleNumber === i + 1)?.shareNumber ?? 0);
   const fields = {
@@ -285,6 +289,29 @@ export async function recordPayout(actor: Actor | null, gid: string, pid: string
     }
     tx.update(refs.gam3ya(gid), { openPayouts, updatedAt: now, ...applyLifecycle(tx, gid, g, next, existing, actor!.uid) });
   });
+}
+
+// ─────────────────────────── How I'll pay ───────────────────────────
+
+/**
+ * A member writes (or clears) how they'll pay in one Gam3ya. Only the method —
+ * links, emails and account/wallet/phone numbers are refused. Read by the
+ * admin and that Gam3ya's organizer; never by other members.
+ */
+export async function setPaymentMethod(actor: Actor | null, gid: string, raw: string | null) {
+  const text = raw === null || raw.trim() === "" ? null : checkPaymentMethodText(raw);
+  await db().runTransaction(async (tx) => {
+    const snap = await tx.get(refs.gam3ya(gid));
+    if (!snap.exists) throw new PolicyError("not_found");
+    const g = snap.data() as Gam3yaDoc;
+    if (!isMemberOf(actor, g)) throw new PolicyError("not_authorized");
+    if (g.status === "completed" || g.status === "cancelled") throw new PolicyError("archived_read_only");
+    const ref = refs.paymentMethod(gid, actor!.uid);
+    if (text === null) tx.delete(ref);
+    else tx.set(ref, { text, updatedAt: nowIso() });
+    audit(tx, { actorId: actor!.uid, action: "payment_method.updated", entityType: "gam3ya", entityId: gid, gam3yaId: gid, before: null, after: { text }, reason: null });
+  });
+  return text;
 }
 
 // ─────────────────────────── Schedule changes ───────────────────────────

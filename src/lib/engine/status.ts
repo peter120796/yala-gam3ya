@@ -1,4 +1,4 @@
-import { addDays, compareDates, type CivilDate } from "./dates";
+import { compareDates, type CivilDate } from "./dates";
 import type {
   ContributionRecordStatus,
   ContributionStatus,
@@ -10,9 +10,9 @@ import type {
 /**
  * Display status for a contribution. Recorded statuses win; otherwise the
  * status is derived from dates so it can never go stale:
- *   today < dueDate                    → upcoming
- *   dueDate ≤ today ≤ dueDate + grace  → due
- *   today > dueDate + grace            → overdue
+ *   today < dueDate  → upcoming
+ *   today ≥ dueDate  → due (stays "due" until recorded — members are never
+ *                      labelled late)
  * "reported_paid" (member self-report) is not settled until an organizer
  * records it as paid.
  */
@@ -20,12 +20,9 @@ export function deriveContributionStatus(
   dueDate: CivilDate,
   record: ContributionRecordStatus | null,
   today: CivilDate,
-  graceDays: number,
 ): ContributionStatus {
   if (record) return record;
-  if (compareDates(today, dueDate) < 0) return "upcoming";
-  if (compareDates(today, addDays(dueDate, graceDays)) <= 0) return "due";
-  return "overdue";
+  return compareDates(today, dueDate) < 0 ? "upcoming" : "due";
 }
 
 export function isContributionSettled(record: ContributionRecordStatus | null): boolean {
@@ -34,20 +31,17 @@ export function isContributionSettled(record: ContributionRecordStatus | null): 
 
 /**
  * Display status for a payout. The original scheduled date is never changed;
- * a late payout is shown as "delayed" either because an organizer marked it so
- * or because the grace window passed without a completion record.
+ * a payout is only shown as "delayed" when an organizer marks it so —
+ * otherwise it stays "due" until it is recorded.
  */
 export function derivePayoutStatus(
   payoutDate: CivilDate,
   record: PayoutRecordStatus | null,
   today: CivilDate,
-  graceDays: number,
 ): PayoutStatus {
   if (record === "confirmed_completed" || record === "reported_completed") return record;
   if (record === "delayed") return "delayed";
-  if (compareDates(today, payoutDate) < 0) return "scheduled";
-  if (compareDates(today, addDays(payoutDate, graceDays)) <= 0) return "due";
-  return "delayed";
+  return compareDates(today, payoutDate) < 0 ? "scheduled" : "due";
 }
 
 export function isPayoutSettled(record: PayoutRecordStatus | null): boolean {

@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { Firestore, Transaction, DocumentReference, BulkWriter } from "firebase-admin/firestore";
 import { db } from "@/lib/firebase/admin";
-import type { AuditDoc, Gam3yaDoc, NotificationDoc, ObligationDoc, PayoutDoc, PolicyVersionDoc, RecordDoc, UserDoc, ChangeRequestDoc } from "./types";
+import type { AuditDoc, ChangeRequestDoc, Gam3yaDoc, NotificationDoc, ObligationDoc, PaymentMethodDoc, PayoutDoc, PolicyVersionDoc, RecordDoc, UserDoc } from "./types";
 
 /** Typed collection helpers. App code stays within the API subset used here. */
 export const nowIso = () => new Date().toISOString();
@@ -17,6 +17,9 @@ export const refs = {
   payouts: (gid: string) => db().collection("gam3yas").doc(gid).collection("payouts"),
   payout: (gid: string, id: string) => db().collection("gam3yas").doc(gid).collection("payouts").doc(id) as DocumentReference<PayoutDoc>,
   records: (gid: string) => db().collection("gam3yas").doc(gid).collection("records"),
+  paymentMethods: (gid: string) => db().collection("gam3yas").doc(gid).collection("paymentMethods"),
+  paymentMethod: (gid: string, uid: string) =>
+    db().collection("gam3yas").doc(gid).collection("paymentMethods").doc(uid) as DocumentReference<PaymentMethodDoc>,
   changeRequests: (gid: string) => db().collection("gam3yas").doc(gid).collection("changeRequests"),
   changeRequest: (gid: string, id: string) =>
     db().collection("gam3yas").doc(gid).collection("changeRequests").doc(id) as DocumentReference<ChangeRequestDoc>,

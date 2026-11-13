@@ -6,7 +6,6 @@ import type { ContributionStatus, Gam3yaLifecycle, PayoutStatus } from "@/lib/en
 const C: Record<ContributionStatus, { v: "neutral" | "info" | "danger" | "warning" | "default"; Icon: typeof Clock }> = {
   upcoming: { v: "neutral", Icon: Clock },
   due: { v: "info", Icon: CircleDot },
-  overdue: { v: "danger", Icon: AlertTriangle },
   reported_paid: { v: "warning", Icon: Send },
   recorded_paid: { v: "default", Icon: CheckCircle2 },
   waived: { v: "neutral", Icon: MinusCircle },

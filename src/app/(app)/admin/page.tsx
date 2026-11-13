@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { AlertTriangle, CalendarClock, CheckCircle2, Layers, UserCheck, Users } from "lucide-react";
+import { CalendarClock, CheckCircle2, Layers, UserCheck, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { KpiCard } from "@/components/gam3ya/kpi-card";
@@ -19,7 +19,7 @@ export default async function AdminOverviewPage() {
     needs: await getNeedsAction(user.actor, today),
     pendingSignups: await pendingApprovalCount(user.actor),
   };
-  const attention = needs.filter((n) => n.status === "needs_closure" || n.overdue > 0 || n.reported > 0 || n.late_payouts > 0);
+  const attention = needs.filter((n) => n.status === "needs_closure" || n.reported > 0 || n.late_payouts > 0);
   return (
     <div className="flex flex-col gap-6">
       {pendingSignups > 0 && (
@@ -34,7 +34,6 @@ export default async function AdminOverviewPage() {
         <KpiCard label={t("admin.activeGam3yas")} value={<span className="num">{stats.active_gam3yas}</span>} icon={<Layers />} />
         <KpiCard label={t("admin.completedGam3yas")} value={<span className="num">{stats.completed_gam3yas}</span>} icon={<CheckCircle2 />} />
         <KpiCard label={t("admin.upcomingPayouts")} value={<span className="num">{stats.upcoming_payouts}</span>} hint={<Money value={stats.upcoming_payouts_amount ?? 0} />} icon={<CalendarClock />} />
-        <KpiCard label={t("admin.overdueContributions")} value={<span className="num">{stats.overdue_contributions}</span>} icon={<AlertTriangle />} />
       </section>
       <Card>
         <CardHeader>
@@ -49,7 +48,6 @@ export default async function AdminOverviewPage() {
                 <TR>
                   <TH>{t("export.gam3ya")}</TH>
                   <TH>{t("common.status")}</TH>
-                  <TH className="text-end">{t("status.contribution.overdue")}</TH>
                   <TH className="text-end">{t("status.contribution.reported_paid")}</TH>
                   <TH className="text-end">{t("status.payout.delayed")}</TH>
                 </TR>
@@ -59,7 +57,6 @@ export default async function AdminOverviewPage() {
                   <TR key={n.id}>
                     <TD><Link href={`/gam3yas/${n.id}`} className="font-medium hover:underline">{n.name}</Link></TD>
                     <TD><Gam3yaBadge status={n.status} /></TD>
-                    <TD className="num text-end">{n.overdue}</TD>
                     <TD className="num text-end">{n.reported}</TD>
                     <TD className="num text-end">{n.late_payouts}</TD>
                   </TR>
